@@ -1011,6 +1011,7 @@ static aopt_t *alloc_aopt(void) {
     ao->n = 1;
     ao->v = 0;
     ao->s = 0;
+    ao->n_arg = 0;
     return ao;
 }
 
@@ -1027,25 +1028,16 @@ static ao_t parse_ancillary_opt(const char *s) {
         return AO_ISB;
     } else if ((strncmp(s, "unq-", 4) == 0) || (strncmp(s, "shr-", 4) == 0)) {
         int res = AO_BUF_OP | ((strncmp(s, "unq", 3) == 0) ? AO_UNQ : AO_SHR);
-        int str = (strncmp(s + 4, "str", 3) == 0 ? 1 : 0);
-        int ldr = (strncmp(s + 4, "ldr", 3) == 0 ? 1 : 0);
-        int inc = (strncmp(s + 4, "inc", 3) == 0 ? 1 : 0);
-        int dec = (strncmp(s + 4, "dec", 3) == 0 ? 1 : 0);
+        res |= (strncmp(s + 4, "str", 3) == 0 ? AO_STR : 0);
+        res |= (strncmp(s + 4, "sts", 3) == 0 ? AO_STR | AO_UPDATE_SR : 0);
+        res |= (strncmp(s + 4, "ldr", 3) == 0 ? AO_LDR : 0);
+        res |= (strncmp(s + 4, "lds", 3) == 0 ? AO_LDR | AO_UPDATE_SR : 0);
+        res |= (strncmp(s + 4, "inc", 3) == 0 ? AO_INC : 0);
+        res |= (strncmp(s + 4, "dec", 3) == 0 ? AO_DEC : 0);
+        res |= (strncmp(s + 4, "set", 3) == 0 ? AO_SET : 0);
         if (strlen(s) == 11) {
-            str += (strncmp(s + 4, "str", 3) == 0 ? 1 : 0);
-            ldr += (strncmp(s + 4, "ldr", 3) == 0 ? 1 : 0);
-            inc += (strncmp(s + 4, "inc", 3) == 0 ? 1 : 0);
-            dec += (strncmp(s + 4, "dec", 3) == 0 ? 1 : 0);
-        }
-        if (str) {
-            res |= AO_STR;
-        } else if (ldr) {
-            res |= AO_LDR;
-        }
-        if (inc) {
-            res |= AO_INC;
-        } else if (dec) {
-            res |= AO_DEC;
+            res |= (strncmp(s + 4, "inc", 3) == 0 ? AO_INC : 0);
+            res |= (strncmp(s + 4, "dec", 3) == 0 ? AO_DEC : 0);
         }
         return res;
     } else {
@@ -1096,7 +1088,8 @@ aopt_t *parse_ancillary(const char *s) {
 
             if ((p == e) || (s[p] == ',') || (s[p] == '\0')) {
                 buffer[bp] = '\0';
-                if ((arg_n == 0) || (arg_n <= n_args_for_ancillary(ao->opt))) { 
+                if ((arg_n == 0) || (arg_n <= n_args_for_ancillary(ao->opt))) {
+                    ao->n_arg = arg_n;
                     switch (arg_n) {
                         case 0:
                             ao->opt = parse_ancillary_opt(buffer);

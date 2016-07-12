@@ -41,7 +41,7 @@ unq-ldr,N,S         - load S bytes (1,2,4,8) from unq buffer N times [N=1,S=8]
 unq-lds,N,S         - as unq-ldr, but the loaded value is added to r_stall 
 unq-inc,I           - add S to the unq buffer pointer [I=8]
 unq-dec,I           - subtract S from unq buffer pointer [I=8]
-unq-set,P           - unq buffer pointer is set to P
+unq-set,P           - unq buffer pointer is set to P [P=0]
 unq-str-inc,N,S,I   - as unq-str followed by unq-inc [I=S]
 unq-str-dec,N,S,I   - as unq-str followed by unq-dec [I=S]
 unq-sts-inc,N,S,I   - as unq-sts followed by unq-inc [I=S]

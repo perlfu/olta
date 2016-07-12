@@ -85,8 +85,20 @@ static void _str_ind_idx(asm_ctx_t *ctx, reg_t src_r, reg_t dst_addr_r, int offs
     _str_ind_by_size(ctx, 8, src_r, dst_addr_r, offset_idx);
 }
 
+static void _movz(asm_ctx_t *ctx, reg_t reg, int val, int shift) {
+    const int shift_v = shift / 16;
+    assert(shift == 0 || shift == 16 || shift == 32 || shift == 48);
+    ctx->buf[ctx->idx++] = 0xd2800000 | (reg & 0x1f) | ((val & 0xffff) << 5) | ((shift_v & 0x3) << 21);
+}
+
+static void _movk(asm_ctx_t *ctx, reg_t reg, int val, int shift) {
+    const int shift_v = shift / 16;
+    assert(shift == 0 || shift == 16 || shift == 32 || shift == 48);
+    ctx->buf[ctx->idx++] = 0xf2800000 | (reg & 0x1f) | ((val & 0xffff) << 5) | ((shift_v & 0x3) << 21);
+}
+
 static void _mov_const(asm_ctx_t *ctx, reg_t reg, int val) {
-    ctx->buf[ctx->idx++] = 0xd2800000 | (reg & 0x1f) | (val << 5);
+    _movz(ctx, reg, val, 0);
 }
 
 static void _mrs_pmccntr_el0(asm_ctx_t *ctx, reg_t dst_r) {
@@ -466,13 +478,17 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
         _sub_const(ctx, limit_r, 1);
         
         for (i = 0; i < rep; ++i) {
+            // FIXME: add loop rolling
             if (ao & AO_LDR) {
                 if (size < 8)
                     _mov_const(ctx, data_r, 0);
                 _ldr_ind_by_size_offset_r(ctx, size, data_r, base_r, idx_r, 0);
-                _add(ctx, ctx->r_stall, ctx->r_stall, data_r); 
+                if (ao & AO_UPDATE_SR)
+                    _add(ctx, ctx->r_stall, ctx->r_stall, data_r); 
             } else {
                 _str_ind_by_size_offset_r(ctx, size, ctx->r_stall, base_r, idx_r, 0);
+                if (ao & AO_UPDATE_SR)
+                    _add_const(ctx, ctx->r_stall, 1);
             }
             if ((ao & AO_INC) || (ao & AO_DEC)) {
                 if (ao & AO_INC)
@@ -483,10 +499,14 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
             } 
         }
     } else if ((ao & AO_INC) || (ao & AO_DEC)) {
-        size = rep;
+        if (ao_p->n_arg > 0) 
+            size = rep;
+        else
+            size = 8;
         
         if (size & (~0xfff))
             log_warning("constant overflow in ancillary %s:%d sequence \"%s\"", th->name, i_n, desc);
+        
         if (ao & AO_INC)
             _add_const(ctx, idx_r, size);
         else
@@ -496,6 +516,12 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
         _lsl(ctx, limit_r, limit_r, buf_size);
         _sub_const(ctx, limit_r, 1);
         _and(ctx, idx_r, idx_r, limit_r);
+    } else if (ao & AO_SET) {
+        unsigned int ptr = ao_p->n_arg == 0 ? 0 : rep;
+        
+        ptr &= ((1 << buf_size) - 1); // pre-limit new ptr
+        _movz(ctx, idx_r, (ptr >> 16) & 0xffff, 16);
+        _movk(ctx, idx_r, (ptr & 0xffff), 0);
     }
 }
 

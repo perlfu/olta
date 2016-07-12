@@ -31,13 +31,15 @@ typedef enum _ao_t {
     AO_NOP              = 8,
     AO_ISB              = 9,
     AO_BUF_OP           = 10,
-    AO_MASK             = 0x00ff,
-    AO_UNQ              = 0x1000,
-    AO_SHR              = 0x2000,
-    AO_STR              = 0x0100,
-    AO_LDR              = 0x0200,
-    AO_INC              = 0x0400,
-    AO_DEC              = 0x0800
+    AO_MASK             = 0x000ff,
+    AO_UNQ              = 0x01000,
+    AO_SHR              = 0x02000,
+    AO_STR              = 0x00100,
+    AO_LDR              = 0x00200,
+    AO_UPDATE_SR        = 0x00800,
+    AO_INC              = 0x04000,
+    AO_DEC              = 0x08000,
+    AO_SET              = 0x00400
 } ao_t;
 
 typedef struct _aopt_t aopt_t;
@@ -48,6 +50,7 @@ struct _aopt_t {
     long n;
     long v;
     long s;
+    int n_arg;
 };
 
 aopt_t *parse_ancillary(const char *s);
