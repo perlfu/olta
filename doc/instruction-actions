@@ -1,0 +1,61 @@
+# Pre and Post Instruction Actions
+
+All thread instructions can be augmented with pre and post actions.
+The intention of these actions is to influence the state of the processor pipeline and caches.
+
+Instruction actions are added by assigning the thread parameters TN-iX-pre or TN-iX-post, where X is the number starting at 0 of the instruction to be augmented.
+Below is a list of available pre/post actions, these can be chained together in sequences using semicolons, e.g. P0-i0-pre=nop;isb;nop;align,4
+
+## Instruction actions
+
+Every action takes at least one parameter (N), this parameter unless otherwise stated repeats that action N times.
+For example 'nop,4' produces four nop instructions.
+
+stall-add       - stall the pipeline by adding 1 to a register designated 
+                  for that purpose (r_stall)
+stall-add-dep   - as stall-add, but create an addr-dep (pre) or data-dep (post)
+                  between the result of addition and the instruction augmented
+                  if the instruction is a load/store (pre) or load (post)
+align           - nop pad to a given multiple of instructions
+nop             - generate nop
+isb             - generate isb
+
+
+## Buffer actions
+
+Actions can be place which read/write to buffers not part of the test data.
+The intention is that these reads and writes can be used to fill the pipeline or stress the dcache.
+There are two buffers available to each thread:
+ * unq: a unique buffer available only to this thread
+ * shr: a shared buffer available to all threads
+A separate pointer is maintained by each thread for each buffer.
+
+The following actions are available:
+
+unq-str,N,S         - store S bytes (1,2,4,8) to unq buffer N times [N=1,S=8]
+                      the value of the r_stall register is written
+unq-sts,N,S         - as unq-str, where additionally
+                      the value of r_stall is incremented by 1 after store
+unq-ldr,N,S         - load S bytes (1,2,4,8) from unq buffer N times [N=1,S=8]
+                      the result of the load is discarded
+unq-lds,N,S         - as unq-ldr, but the loaded value is added to r_stall 
+unq-inc,I           - add S to the unq buffer pointer [I=8]
+unq-dec,I           - subtract S from unq buffer pointer [I=8]
+unq-set,P           - unq buffer pointer is set to P
+unq-str-inc,N,S,I   - as unq-str followed by unq-inc [I=S]
+unq-str-dec,N,S,I   - as unq-str followed by unq-dec [I=S]
+unq-sts-inc,N,S,I   - as unq-sts followed by unq-inc [I=S]
+unq-sts-dec,N,S,I   - as unq-sts followed by unq-dec [I=S]
+unq-ldr-inc,N,S,I   - as unq-ldr followed by unq-inc [I=S]
+unq-ldr-dec,N,S,I   - as unq-ldr followed by unq-dec [I=S]
+unq-lds-inc,N,S,I   - as unq-lds followed by unq-inc [I=S]
+unq-lds-dec,N,S,I   - as unq-lds followed by unq-dec [I=S]
+
+An equivalent action is available for the shared buffer (shr) by replacing unq with shr.
+
+The buffer pointer wraps on overflow (see shared-buffer-size and TN-buffer-size parameters) and therefore it is not possible for actions to cause writes or reads to locations other than the buffer.
+Note that it is possible to create unaligned accesses so care should be taken that these are valid for the given processor.
+
+[Not implemented]
+By default no loops will be generated; however, TN-loop-size-ldr / TN-loop-size-lds / TN-loop-size-str / TN-loop-size-sts can be set.
+These force loop generation for sequences greater than equal to the parameter number of reads/writes. 

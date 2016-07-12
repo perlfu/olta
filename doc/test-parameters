@@ -1,0 +1,46 @@
+# Test Parameters
+
+This file describes the parameters which can be set in the parameter block of a test and how they effect the assembly and execution of a test.
+
+
+## Global Parameters
+
+runs            - number of test runs [1]
+iterations      - number of iterations per test run [100000]
+log-debug       - configure level of debug output [1]
+debug-asm-dump  - dump assembly for validation and separate compilation [0]
+addr-dep        - method used for stall address dependencies [addsub]
+record-timing   - output cycle timing for tests, requires PMU access [0]
+sync            - synchronisation method between test threads [rr]
+                  can be round-robin (rr), master-slave (ms) or countdown (cd)
+                  see the `sync-methods` file for more details
+sync-master     - name of master thread for 'ms' sync
+sync-stall      - number of add1 stall instructions to put in sync loop
+shared-buffer-size  
+                - size in bytes of buffer available to all threads [67108864]
+                  must be a power of two
+
+
+## Memory Location Parameters
+
+These parameters apply to a specific named memory location (MLN).
+
+MLN-stride       - stride bytes between tests [word size of location]
+
+
+## Thread Parameters
+
+These parameters apply to a specific named thread (TN); however, '*' can also be used to apply the parameter to all threads.
+Note that a parameter naming a thread explicitly will override a '*' named parameter for that thread.
+See also the `instruction-actions` file for details on how to augment thread instructions.
+
+TN-affinity         - number of the CPU core/thread to bind this thread to
+TN-align-loop       - instruction alignment for test loop head [0]
+TN-align-test       - instruction alignment for test body [0]
+TN-buffer-size      - size of the private buffer for this thread [67108864]
+                      must be a power of two
+TN-register-shift   - shift register assignment by N registers [0]
+TN-sync-stall       - number of add1 stall instruction to add in sync loop
+TN_MLN-flush        - flush dcache of this location between tests [0]
+TN-MLN-preload      - preload this location between tests (overrides flush) [0]
+
