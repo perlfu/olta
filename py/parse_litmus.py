@@ -8,7 +8,8 @@ def parse_litmus(lines):
     threads = {}
     mem = {}
     assign = {}
-    res = { 'thread_names': thread_names, 'threads': threads, 'vars': mem, 'const': assign }
+    other = []
+    res = { 'thread_names': thread_names, 'threads': threads, 'vars': mem, 'const': assign, 'other': other }
 
     arch_re = re.compile(r'^(\S+)\s+(\S+).*')
     thread_re = re.compile(r'.*;\s*$')
@@ -16,13 +17,14 @@ def parse_litmus(lines):
     var_start = re.compile(r'.*{\s*')
     var_end = re.compile(r'.*}\s*')
     var_dt = re.compile(r'(\S+)\s*=\s*(\S+)\s*;')
-    var_def = re.compile(r'([^= ]+) +(\S+)\s*;')
+    var_def = re.compile(r'([^= ;]+) +(\S+)\s*;')
     is_int = re.compile(r'(0x[0-9a-fA-F]+|[0-9]+)')
     is_th_assignment = re.compile(r'(\d+):(\S+)')
 
     variables = 0
     thread_ln = 0
     for line in lines:
+        line = line.replace("\n", '')
         if ('name' not in res) and arch_re.match(line):
             m = arch_re.match(line)
             res['arch'] = m.group(1)
@@ -42,7 +44,9 @@ def parse_litmus(lines):
                 if is_int.match(name):
                     assign[v] = name
                 elif name in mem:
-                    mem[name]['assign'].append(v.split(':')) 
+                    mem[name]['assign'].append(v.split(':'))
+                else:
+                    assign[v] = name
         elif (variables == 2) and thread_re.match(line):
             thread_ln += 1
             pt = line.replace(';', '').split('|')
@@ -54,6 +58,8 @@ def parse_litmus(lines):
                 elif len(p) > 0:
                     n = thread_names[i]
                     threads[n].append(p)
+        elif variables >= 2:
+            other.append(line)
 
     return res
 
@@ -82,7 +88,6 @@ def serialise_litmus(test):
     for assignment in sorted(test['const'].keys()):
         lines.append(assignment + ' = ' + test['const'][assignment] + ';')
     lines.append('}')
-    lines.append('')
     lines.append(thread_lines(threads, line_width))
     for i in range(n_thread_lines):
         strs = []
@@ -92,14 +97,87 @@ def serialise_litmus(test):
             else:
                 strs.append('')
         lines.append(thread_lines(strs, line_width))
+    lines.extend(test['other'])
 
     return lines
+
+def ins_parts(ins):
+    res = []
+    for i in ins:
+        parts = re.split(r'[ ,\[\]]+', i)
+        for p in parts:
+            if len(p) > 0:
+                res.append(p)
+    return res
+
+def arm_registers(ins):
+    parts = ins_parts(ins)
+    reg_re = re.compile(r'([rRwWxX]\d{1,2})')
+    regs = {}
+    for p in parts:
+        if reg_re.match(p):
+            regs[int(p[1:])] = True
+    return regs
+
+def assign_register(regs):
+    for i in range(30):
+        if i not in regs:
+            regs[i] = True
+            return 'X%d' % i
+    assert False
+
+def rewrite_ins(ins, subs):
+    res = []
+    for i in ins:
+        for (sub, val) in subs.items():
+            i = i.replace(sub, val)
+        res.append(i)
+    return res
+
+def arm_to_armv8_ins(ins):
+    pass
+
+def rewrite_defs(test):
+    names = {}
+    for (sub, var) in test['const'].items():
+        if sub[0] == '%':
+            if var not in names:
+                names[var] = {}
+            names[var][sub] = None 
+   
+    for var in names.keys():
+        if var not in test['vars']:
+            test['vars'][var] = { 'type': 'uint64_t', 'assign': [] }
+
+    idx = 0
+    for (name, ins) in test['threads'].items():
+        regs = arm_registers(ins)
+
+        _parts = ins_parts(ins)
+        parts = {}
+        for p in _parts:
+            parts[p] = True
+
+        usage = {}
+        for var in names.keys():
+            for sub in sorted(names[var].keys()):
+                if sub in parts:
+                    usage[sub] = assign_register(regs)
+                    test['vars'][var]['assign'].append((str(idx), usage[sub])) 
+
+        test['threads'][name] = rewrite_ins(ins, usage)
+        idx += 1
+
+    for var in names.keys():
+        for sub in names[var].keys():
+            del test['const'][sub]
 
 def main(args):
     if len(args) > 0:
         with open(args[0]) as f:
             r = parse_litmus(f.readlines())
-        print r
+    
+        rewrite_defs(r)
         
         l = serialise_litmus(r)
         print "\n"
