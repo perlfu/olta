@@ -134,9 +134,6 @@ def rewrite_ins(ins, subs):
         res.append(i)
     return res
 
-def arm_to_armv8_ins(ins):
-    pass
-
 def rewrite_defs(test):
     names = {}
     for (sub, var) in test['const'].items():
@@ -172,16 +169,50 @@ def rewrite_defs(test):
         for sub in names[var].keys():
             del test['const'][sub]
 
+def arm_to_v8_ins(ins):
+    old_reg_re = re.compile(r'[rR](\d{1,2})')
+    res = []
+    for i in ins:
+        parts = re.split(r'(\s+|,|\[|\])', i)
+        if len(parts) > 0:
+            name = parts[0].upper()
+            for pi in range(len(parts)):
+                p = parts[pi]
+                if old_reg_re.match(p):
+                    m = old_reg_re.match(p)
+                    parts[pi] = 'X' + m.group(1)
+
+            if (name == 'DMB') and (len(parts) == 1):
+                parts[0] = 'DMB ISH'
+        
+        res.append(''.join(parts))
+    return res
+
+def arm_to_v8_other(other):
+    reg_rn = re.compile(r'(\d):R(\d{1,2})')
+    res = []
+    for line in other:
+        line = reg_rn.sub('\\1:X\\2', line)
+        res.append(line)
+    return res
+
+def arm_to_v8(test):
+    if test['arch'] == 'ARM':
+        rewrite_defs(test)
+        for tn in test['threads']:
+            test['threads'][tn] = arm_to_v8_ins(test['threads'][tn])
+        test['other'] = arm_to_v8_other(test['other'])
+        test['arch'] = 'AArch64'
+
 def main(args):
     if len(args) > 0:
         with open(args[0]) as f:
-            r = parse_litmus(f.readlines())
+            test = parse_litmus(f.readlines())
     
-        rewrite_defs(r)
+        arm_to_v8(test)
         
-        l = serialise_litmus(r)
-        print "\n"
-        print "\n".join(l), "\n"
+        litmus = serialise_litmus(test)
+        print "\n".join(litmus)
     else:
         sys.exit(1)
 
