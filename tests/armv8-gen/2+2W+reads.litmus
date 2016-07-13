@@ -1,0 +1,21 @@
+AArch64 2+2W+reads
+{
+1 ;P1:R2=2;
+1 ;P0:R2=2;
+P0:R1 = 1;
+P0:R2 = 2;
+P0:R5 = x;
+P0:R6 = y;
+P1:R1 = 1;
+P1:R2 = 2;
+P1:R5 = x;
+P1:R6 = y;
+P2:R5 = x;
+P3:R6 = y;
+}
+ P0        | P1        | P2        | P3        ;
+ str X2,X5 | str X2,X6 | ldr X1,X5 | ldr X1,X6 ;
+ str X1,X6 | str X1,X5 | ldr X2,X5 | ldr X2,X6 ;
+locations [x; y; P2:X1; P2:X2; P3:X1; P3:X2]
+exists (P2:X1=1 /\ P2:X2=2 /\ P3:X1=1 /\ P3:X2=2)
+

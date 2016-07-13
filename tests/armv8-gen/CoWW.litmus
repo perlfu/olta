@@ -1,0 +1,10 @@
+AArch64 CoWW
+{
+P0:R1 = 1;
+P0:R2 = 2;
+P0:R5 = x;
+}
+ P0        ;
+ str X1,X5 ;
+ str X2,X5 ;
+~exists (x=1)

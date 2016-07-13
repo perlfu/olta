@@ -1,0 +1,16 @@
+ARM 2+2W+dsb+po
+"DSBdWW Wse PodWW Wse"
+Cycle=Wse PodWW Wse DSBdWW
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+{
+%x0=x; %y0=y;
+%y1=y; %x1=x;
+}
+ P0            | P1            ;
+ MOV R0, #2    | MOV R0, #2    ;
+ STR R0, [%x0] | STR R0, [%y1] ;
+ DSB           | MOV R1, #1    ;
+ MOV R1, #1    | STR R1, [%x1] ;
+ STR R1, [%y0] |               ;
+exists
+(x=2 /\ y=2)

@@ -1,0 +1,16 @@
+AArch64 LB+isb+po
+{
+uint64_t y;
+0:X2 = y;
+1:X2 = y;
+uint64_t x;
+0:X3 = x;
+1:X3 = x;
+}
+ P0           | P1           ;
+ LDR X0, [X3] | LDR X0, [X2] ;
+ ISB          | MOV X1, #1   ;
+ MOV X1, #1   | STR X1, [X3] ;
+ STR X1, [X2] |              ;
+exists
+(0:X0=1 /\ 1:X0=1)

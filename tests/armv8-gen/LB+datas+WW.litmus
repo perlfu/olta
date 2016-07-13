@@ -1,0 +1,22 @@
+AArch64 LB+datas+WW
+{
+uint64_t y;
+0:X3 = y;
+uint64_t x;
+0:X4 = x;
+1:X3 = x;
+uint64_t z;
+0:X5 = z;
+1:X4 = z;
+uint64_t a;
+1:X5 = a;
+}
+ P0             | P1             ;
+ LDR X0, [X4]   | LDR X0, [X4]   ;
+ EOR X1,X0,X0   | EOR X1,X0,X0   ;
+ ADD X1, X1, #1 | ADD X1, X1, #1 ;
+ STR X1, [X3]   | STR X1, [X5]   ;
+ MOV X2, #1     | MOV X2, #1     ;
+ STR X2, [X5]   | STR X2, [X3]   ;
+exists
+(0:X0=1 /\ 1:X0=1)

@@ -1,0 +1,17 @@
+AArch64 2+2W+dsb+isb
+{
+uint64_t y;
+0:X2 = y;
+1:X2 = y;
+uint64_t x;
+0:X3 = x;
+1:X3 = x;
+}
+ P0           | P1           ;
+ MOV X0, #2   | MOV X0, #2   ;
+ STR X0, [X3] | STR X0, [X2] ;
+ DSB          | ISB          ;
+ MOV X1, #1   | MOV X1, #1   ;
+ STR X1, [X2] | STR X1, [X3] ;
+exists
+(x=2 /\ y=2)

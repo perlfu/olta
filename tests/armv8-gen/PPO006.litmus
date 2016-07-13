@@ -1,0 +1,25 @@
+AArch64 PPO006
+{
+uint64_t y;
+0:X2 = y;
+1:X6 = y;
+uint64_t x;
+0:X3 = x;
+1:X7 = x;
+uint64_t z;
+1:X8 = z;
+}
+ P0           | P1              ;
+ MOV X0, #1   | LDR X0, [X6]    ;
+ STR X0, [X3] | CMP X0, X0      ;
+ DMB ISH      | BNE LC00        ;
+ MOV X1, #1   | LC00:           ;
+ STR X1, [X2] | MOV X1, #1      ;
+              | STR X1, [X8]    ;
+              | MOV X2, #2      ;
+              | STR X2, [X8]    ;
+              | LDR X3, [X8]    ;
+              | EOR X4,X3,X3    ;
+              | LDR X5, [X4,X7] ;
+exists
+(z=2 /\ 1:X0=1 /\ 1:X5=0)

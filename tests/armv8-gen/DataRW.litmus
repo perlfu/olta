@@ -1,0 +1,21 @@
+AArch64 DataRW
+{
+uint64_t y;
+0:X2 = y;
+1:X4 = y;
+uint64_t x;
+0:X3 = x;
+1:X5 = x;
+uint64_t z;
+1:X6 = z;
+}
+ P0           | P1             ;
+ MOV X0, #2   | LDR X0, [X4]   ;
+ STR X0, [X3] | EOR X1,X0,X0   ;
+ DMB ISH      | ADD X1, X1, #1 ;
+ MOV X1, #1   | STR X1, [X6]   ;
+ STR X1, [X2] | LDR X2, [X6]   ;
+              | MOV X3, #1     ;
+              | STR X3, [X5]   ;
+exists
+(x=2 /\ 1:X0=1)

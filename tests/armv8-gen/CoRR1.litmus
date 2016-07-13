@@ -1,0 +1,12 @@
+AArch64 CoRR1
+{
+P0:R2 = 2;
+P0:R5 = x;
+P1:R5 = x;
+x = 1;
+}
+ P0        | P1        ;
+ str X2,X5 | ldr X1,X5 ;
+           | ldr X2,X5 ;
+
+~exists (P1:X1=2 /\ P1:X2=1)

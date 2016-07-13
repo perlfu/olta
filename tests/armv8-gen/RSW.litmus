@@ -1,0 +1,18 @@
+AArch64 RSW
+{
+P0:R7 = y;
+P0:R8 = z;
+P1:R6 = x;
+P1:R7 = y;
+P1:R8 = z;
+}
+ P0        | P1              ;
+ mov X1,1  | ldr X1,X7       ;
+ str X1,X8 | and X9,X1,#0    ;
+ DMB ISH   | ldr X3,[X9,X6]  ;
+ mov X2,2  | ldr X4,X6       ;
+ str X2,X7 | and X10,X4,#0   ;
+           | ldr X2,[X10,X8] ;
+
+locations [P1:X1; P1:X2;]
+exists (P1:X1=2 /\ P1:X2=0)

@@ -1,0 +1,17 @@
+AArch64 LB+rs
+{
+P0:R4 = x;
+P0:R5 = y;
+P1:R4 = x;
+P1:R5 = y;
+[x] = 0;
+[y] = 0;
+}
+ P0          | P1            ;
+ ldr X1, X4  | ldr  X3, X5   ;
+ mov  X2, X1 | add X3, X3, 1 ;
+ mov  X1, 1  | str  X3, X4   ;
+ str X1, X5  |               ;
+
+exists (P0:X1=1 /\ P0:X2=2 /\ P1:X3= 2 /\ [y]=1 /\ [x]=2)
+
