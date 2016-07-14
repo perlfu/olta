@@ -14,5 +14,6 @@ void log_debug_p(const char *fmt, ...);
 void log_debug_end(void);
 void log_debug(const char *fmt, ...);
 void log_flush(void);
+int log_error_count(void);
 
 #endif /* __LOG_H */

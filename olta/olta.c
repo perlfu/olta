@@ -369,5 +369,5 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    return 0;
+    return log_error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
