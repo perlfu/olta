@@ -4,6 +4,8 @@
 typedef enum {
     I_LDR,
     I_STR,
+    I_MOV,
+    I_DMB_ISH,
     I_DMB_SY
 } ins_t;
 

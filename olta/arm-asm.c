@@ -85,20 +85,34 @@ static void _str_ind_idx(asm_ctx_t *ctx, reg_t src_r, reg_t dst_addr_r, int offs
     _str_ind_by_size(ctx, 8, src_r, dst_addr_r, offset_idx);
 }
 
-static void _movz(asm_ctx_t *ctx, reg_t reg, int val, int shift) {
+static void _movz(asm_ctx_t *ctx, int size, reg_t reg, int val, int shift) {
     const int shift_v = shift / 16;
+
     assert(shift == 0 || shift == 16 || shift == 32 || shift == 48);
-    ctx->buf[ctx->idx++] = 0xd2800000 | (reg & 0x1f) | ((val & 0xffff) << 5) | ((shift_v & 0x3) << 21);
+    assert(size == 4 || size == 8);
+
+    if (size == 4) {
+        ctx->buf[ctx->idx++] = 0x52800000 | (reg & 0x1f) | ((val & 0xffff) << 5) | ((shift_v & 0x3) << 21);
+    } else if (size == 8) {
+        ctx->buf[ctx->idx++] = 0xd2800000 | (reg & 0x1f) | ((val & 0xffff) << 5) | ((shift_v & 0x3) << 21);
+    } 
 }
 
-static void _movk(asm_ctx_t *ctx, reg_t reg, int val, int shift) {
+static void _movk(asm_ctx_t *ctx, int size, reg_t reg, int val, int shift) {
     const int shift_v = shift / 16;
+
     assert(shift == 0 || shift == 16 || shift == 32 || shift == 48);
-    ctx->buf[ctx->idx++] = 0xf2800000 | (reg & 0x1f) | ((val & 0xffff) << 5) | ((shift_v & 0x3) << 21);
+    assert(size == 4 || size == 8);
+
+    if (size == 4) {
+        ctx->buf[ctx->idx++] = 0x72800000 | (reg & 0x1f) | ((val & 0xffff) << 5) | ((shift_v & 0x3) << 21);
+    } else if (size == 8) {
+        ctx->buf[ctx->idx++] = 0xf2800000 | (reg & 0x1f) | ((val & 0xffff) << 5) | ((shift_v & 0x3) << 21);
+    }
 }
 
 static void _mov_const(asm_ctx_t *ctx, reg_t reg, int val) {
-    _movz(ctx, reg, val, 0);
+    _movz(ctx, 8, reg, val, 0);
 }
 
 static void _mrs_pmccntr_el0(asm_ctx_t *ctx, reg_t dst_r) {
@@ -114,11 +128,6 @@ static void _udiv32(asm_ctx_t *ctx, reg_t dst_r, reg_t val_r, reg_t div_r) {
 static void _msub32(asm_ctx_t *ctx, reg_t dst_r, reg_t src0_r, reg_t src1_r, reg_t acc_r) {
     // dst_r = acc_r - (src0_r * src1_r)
     ctx->buf[(ctx->idx)++] = 0x1b008000 | (dst_r & 0x1f) | ((src0_r & 0x1f) << 5) | ((src1_r & 0x1f) << 16) | ((acc_r & 0x1f) << 10);
-}
-
-__attribute__ ((unused))
-static void _mov(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
-    ctx->buf[(ctx->idx)++] = 0xaa0003e0 | (dst_r) | ((src_r & 0x1f) << 16);
 }
 
 static void _ret(asm_ctx_t *ctx) {
@@ -221,9 +230,18 @@ static void _bne(asm_ctx_t *ctx, int dist) {
     ctx->buf[(ctx->idx)++] = 0x54000001 | (dist << 5);
 }
 
-__attribute__ ((unused))
-static void _orr(asm_ctx_t *ctx, reg_t dst_r, reg_t reg0, reg_t reg1) {
-    ctx->buf[(ctx->idx)++] = 0xaa000000 | (dst_r) | (reg0 << 5) | (reg1 << 16);
+static void _orr(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    assert(size == 4 || size == 8);
+
+    if (size == 4) {
+        ctx->buf[(ctx->idx)++] = 0x2a000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+    } else if (size == 8) {
+        ctx->buf[(ctx->idx)++] = 0xaa000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+    }
+}
+
+static void _mov(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
+    _orr(ctx, 8, dst_r, XZR, src_r, SHIFT_LSL, 0, 0);
 }
 
 __attribute__ ((unused))
@@ -520,8 +538,8 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
         unsigned int ptr = ao_p->n_arg == 0 ? 0 : rep;
         
         ptr &= ((1 << buf_size) - 1); // pre-limit new ptr
-        _movz(ctx, idx_r, (ptr >> 16) & 0xffff, 16);
-        _movk(ctx, idx_r, (ptr & 0xffff), 0);
+        _movz(ctx, 8, idx_r, (ptr >> 16) & 0xffff, 16);
+        _movk(ctx, 8, idx_r, (ptr & 0xffff), 0);
     }
 }
 
@@ -637,12 +655,34 @@ static int build_str(asm_ctx_t *ctx, ins_desc_t *desc) {
     return -1;
 }
 
+static int build_mov(asm_ctx_t *ctx, ins_desc_t *desc) {
+    if (desc->n_arg == 2) {
+        ins_arg_t *dst_a = &(desc->arg[0]);
+        ins_arg_t *src_a = &(desc->arg[1]);
+        
+        if (dst_a->size == 4 || dst_a->size == 8) {
+            if (desc->flags & I_CONST) {
+                _movz(ctx, dst_a->size, dst_a->n, src_a->n, 0);
+            } else {
+                _orr(ctx, dst_a->size, dst_a->n, XZR, src_a->n, SHIFT_LSL, 0, 0);
+            }
+            return 0;
+        }
+    }
+    return -1;
+}
+
 static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
     switch (desc->ins) {
         case I_LDR:
             return build_ldr(ctx, desc);
         case I_STR:
             return build_str(ctx, desc);
+        case I_MOV:
+            return build_mov(ctx, desc);
+        case I_DMB_ISH:
+            _dmb_ish(ctx);
+            return 0;
         case I_DMB_SY:
             _dmb_sy(ctx);
             return 0;

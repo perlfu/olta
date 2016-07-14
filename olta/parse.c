@@ -522,6 +522,9 @@ static int parse_ins_args(ins_desc_t *ins, const char *line, char *err) {
                 if (isdigit(buffer[0])) {
                     ins->arg[arg_n].size = -1;
                     ins->arg[arg_n].n = strtol(buffer, NULL, 0);
+                } else if (buffer[0] == '#') {
+                    ins->arg[arg_n].size = -1;
+                    ins->arg[arg_n].n = strtol(buffer + 1, NULL, 0);
                 } else if (buffer[0] == 'w' || buffer[0] == 'r' || buffer[0] == 'x') {
                     switch (buffer[0]) {
                         case 'w': ins->arg[arg_n].size = 4; break;
@@ -595,6 +598,44 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             return -1;
         }
 
+        if (ret >= 3) {
+            if (d->arg[2].size == -1)
+                d->flags |= I_OFFSET_CONST;
+            else
+                d->flags |= I_OFFSET_REG;
+        }
+
+        return 1;
+    } else if (strncmp(line, "mov", 3) == 0) {
+        int p = 3;
+        int ret = parse_ins_args(d, line + p, err);
+        
+        d->ins = I_MOV;
+        
+        if (ret < 0)
+            return ret;
+
+        if (ret < 2) {
+            snprintf(err, BUFFER_LEN - 1, "insufficient arguments \"%s\"", line);
+            return -1;
+        }
+        // FIXME: movk movz support
+        if (ret > 2) {
+            snprintf(err, BUFFER_LEN - 1, "insufficient arguments \"%s\"", line);
+            return -1;
+        }
+
+        d->size = d->arg[0].size;
+        if (d->size == 0)
+            d->size = 8;
+        if (d->arg[1].size == -1)
+            d->flags |= I_CONST;
+
+        return 1;
+    } else if (strcmp(line, "dmb ish") == 0) {
+        d->ins = I_DMB_ISH;
+        d->size = 0;
+        d->n_arg = 0;
         return 1;
     } else if (strcmp(line, "dmb sy") == 0) {
         d->ins = I_DMB_SY;
@@ -924,6 +965,8 @@ static const char *ins_name(ins_t ins) {
     switch (ins) {
         case I_LDR: return "LDR";
         case I_STR: return "STR";
+        case I_MOV: return "MOV";
+        case I_DMB_ISH: return "DMB ISH";
         case I_DMB_SY: return "DMB SY";
         default: return "UNKNOWN";
     }
@@ -932,7 +975,7 @@ static const char *ins_name(ins_t ins) {
 static void print_ins(ins_desc_t *ins, const char *indent) {
     log_debug_start();
     log_debug_p("%sins %s", indent, ins_name(ins->ins));
-    if (ins->ins != I_DMB_SY) {
+    if (!(ins->ins == I_DMB_SY || ins->ins == I_DMB_ISH)) {
         log_debug_p(" size=%d", ins->size);
     }
     if (ins->flags & I_INDIRECT) {

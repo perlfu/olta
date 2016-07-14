@@ -38,8 +38,16 @@ typedef enum _reg_t {
     X27 = 27,
     X28 = 28,
     X29 = 29,
-    X30 = 30
+    X30 = 30,
+    XZR = 31
 } reg_t;
+
+typedef enum _shift_t {
+    SHIFT_LSL = 0x0,
+    SHIFT_LSR = 0x1,
+    SHIFT_ASR = 0x2,
+    SHIFT_ROR = 0x3
+} shift_t;
 
 typedef enum _addr_dep_type {
     ADDR_DEP_ADDSUB
