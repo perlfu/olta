@@ -7,6 +7,7 @@ import subprocess
 OLTA_PATH = None
 
 def check_and_report(test):
+    error_re = re.compile(r'ERROR: (.*)')
     result_re = re.compile(r'--- results')
     end_re = re.compile(r'--- end')
     
@@ -15,19 +16,28 @@ def check_and_report(test):
     try:
         in_results = False
         count = 0
+        errors = []
 
-        output = subprocess.check_output(["./" + OLTA_PATH, test])
-        for line in output.split("\n"):
-            if result_re.match(line):
+        p = subprocess.Popen(["./" + OLTA_PATH, test], stdout=subprocess.PIPE)
+        output = p.stdout.readlines()
+        errcode = p.returncode
+        for line in output:
+            if error_re.match(line):
+                m = error_re.match(line)
+                errors.append(m.group(1))
+            elif result_re.match(line):
                 in_results = True
-            elif end_re.match(line)
+            elif end_re.match(line):
                 in_results = False
             elif in_results:
                 count += 1
 
-        sys.stdout.write("pass (%d end states)\n" % count)
+        if errcode == 0:
+            sys.stdout.write("pass (%d end states)\n" % count)
+        else:
+            sys.stdout.write("failure - " + errors[0] + "\n")
     except subprocess.CalledProcessError as e:
-        sys.stdout.write("failured\n")
+        sys.stdout.write("failure - unknown\n")
     
     sys.stdout.flush()
 
