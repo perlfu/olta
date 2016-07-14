@@ -3,6 +3,7 @@
 
 static pthread_mutex_t lock;
 static int debug_mode = 0;
+static int error_count = 0;
 
 void log_init(void) {
     int r = pthread_mutex_init(&lock, NULL);
@@ -12,6 +13,7 @@ void log_init(void) {
 void log_configure_for_test(litmus_t *lt) {
     pthread_mutex_lock(&lock);
     debug_mode = config_lookup_var_int(lt, "log-debug", 1);
+    error_count = 0;
     pthread_mutex_unlock(&lock);
 }
 
@@ -31,6 +33,7 @@ void log_error(const char *fmt, ...) {
     vfprintf(stdout, fmt, ap);
     fprintf(stdout, "\n");
     va_end(ap);
+    error_count += 1;
 }
 
 void log_warning(const char *fmt, ...) {
@@ -86,4 +89,8 @@ void log_debug(const char *fmt, ...) {
 
 void log_flush(void) {
     fflush(stdout);
+}
+
+int log_error_count(void) {
+    return error_count;
 }
