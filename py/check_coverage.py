@@ -20,7 +20,7 @@ def check_and_report(test):
 
         p = subprocess.Popen(["./" + OLTA_PATH, test], stdout=subprocess.PIPE)
         output = p.stdout.readlines()
-        errcode = p.returncode
+        errcode = p.wait()
         for line in output:
             if error_re.match(line):
                 m = error_re.match(line)
@@ -34,8 +34,11 @@ def check_and_report(test):
 
         if errcode == 0:
             sys.stdout.write("pass (%d end states)\n" % count)
+        elif len(errors) > 0:
+            sys.stdout.write("failure (err: %d) - %s\n" % (errcode, errors[0]))
         else:
-            sys.stdout.write("failure - " + errors[0] + "\n")
+            sys.stdout.write("failure (err: %d) - unknown\n" % errcode)
+    
     except subprocess.CalledProcessError as e:
         sys.stdout.write("failure - unknown\n")
     
