@@ -10,6 +10,7 @@ def check_and_report(test):
     error_re = re.compile(r'ERROR: (.*)')
     result_re = re.compile(r'--- results')
     end_re = re.compile(r'--- end')
+    passed = False
     
     sys.stdout.write(test + ": ")
     sys.stdout.flush()
@@ -33,7 +34,9 @@ def check_and_report(test):
                 count += 1
 
         if errcode == 0:
+            passed = True
             sys.stdout.write("pass (%d end states)\n" % count)
+
         elif len(errors) > 0:
             sys.stdout.write("failure (err: %d) - %s\n" % (errcode, errors[0]))
         else:
@@ -43,6 +46,8 @@ def check_and_report(test):
         sys.stdout.write("failure - unknown\n")
     
     sys.stdout.flush()
+
+    return passed
 
 def main(args):
     global OLTA_PATH
@@ -57,8 +62,13 @@ def main(args):
             print >>sys.stderr, "unable to find olta binary"
             sys.exit(1)
         
+        passed = 0
         for test in args:
-            check_and_report(test)
+            if check_and_report(test):
+                passed += 1
+
+        if len(args) > 1:
+            print '%d tested, %d passed, %d failed' % (len(args), passed, len(args) - passed)
     else:
         print >>sys.stderr, "check_coverage.py <test-1> [<test-2> ...]"
         sys.exit(1)
