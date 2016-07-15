@@ -134,29 +134,30 @@ static void _ret(asm_ctx_t *ctx) {
     ctx->buf[(ctx->idx)++] = 0xd65f03c0;
 }
 
+static void _bar(asm_ctx_t *ctx, bar_type_t tp, bar_domain_t dom, bar_req_t req) {
+    if (tp == BAR_ISB)
+        assert(dom == BAR_FULL_SYSTEM && req == BAR_ALL);
+    ctx->buf[(ctx->idx)++] = 0xd503309f | (tp << 5) | (req << 8) | (dom << 10);
+}
+
 static void _isb(asm_ctx_t *ctx) {
-    ctx->buf[(ctx->idx)++] = 0xd5033fdf;
+    _bar(ctx, BAR_ISB, BAR_FULL_SYSTEM, BAR_ALL);
 }
 
 static void _dsb_ish(asm_ctx_t *ctx) {
-    ctx->buf[(ctx->idx)++] = 0xd5033b9f;
+    _bar(ctx, BAR_DSB, BAR_INNER_SHAREABLE, BAR_ALL);
 }
 
 static void _dsb_ishld(asm_ctx_t *ctx) {
-    ctx->buf[(ctx->idx)++] = 0xd503399f;
+    _bar(ctx, BAR_DSB, BAR_INNER_SHAREABLE, BAR_READS);
 }
 
 static void _dmb_ish(asm_ctx_t *ctx) {
-    ctx->buf[(ctx->idx)++] = 0xd5033bbf;
+    _bar(ctx, BAR_DMB, BAR_INNER_SHAREABLE, BAR_ALL);
 }
 
 static void _dmb_ishst(asm_ctx_t *ctx) {
-    ctx->buf[(ctx->idx)++] = 0xd5033abf;
-}
-
-__attribute__ ((unused))
-static void _dsb_sy(asm_ctx_t *ctx) {
-    ctx->buf[(ctx->idx)++] = 0xd5033f9f;
+    _bar(ctx, BAR_DMB, BAR_INNER_SHAREABLE, BAR_WRITES);
 }
 
 static void _nop_alignment(asm_ctx_t *ctx, int align) {
@@ -669,7 +670,32 @@ static int build_mov(asm_ctx_t *ctx, ins_desc_t *desc) {
 }
 
 static int build_bar(asm_ctx_t *ctx, ins_desc_t *desc) {
-    return -1;
+    bar_domain_t dom = BAR_FULL_SYSTEM;
+    bar_req_t req = BAR_ALL;
+    bar_type_t tp;
+    
+    switch (desc->ins) {
+        case I_DMB: tp = BAR_DMB; break;
+        case I_DSB: tp = BAR_DSB; break;
+        case I_ISB: tp = BAR_ISB; break;
+        default: return -1;
+    }
+
+    if (desc->flags & I_BAR_ISH)
+        dom = BAR_INNER_SHAREABLE;
+    else if (desc->flags & I_BAR_NSH)
+        dom = BAR_NON_SHAREABLE;
+    else if (desc->flags & I_BAR_OSH)
+        dom = BAR_OUTER_SHAREABLE;
+
+    if (desc->flags & I_BAR_ST)
+        req = BAR_WRITES;
+    else if (desc->flags & I_BAR_LD)
+        req = BAR_READS;
+
+    _bar(ctx, tp, dom, req);
+
+    return 0;
 }
 
 static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {

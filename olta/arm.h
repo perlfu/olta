@@ -49,6 +49,25 @@ typedef enum _shift_t {
     SHIFT_ROR = 0x3
 } shift_t;
 
+typedef enum _bar_type_t {
+    BAR_DSB = 0x0,
+    BAR_DMB = 0x1,
+    BAR_ISB = 0x2
+} bar_type_t;
+
+typedef enum _bar_domain_t {
+    BAR_OUTER_SHAREABLE  = 0x0,
+    BAR_NON_SHAREABLE    = 0x1,
+    BAR_INNER_SHAREABLE  = 0x2,
+    BAR_FULL_SYSTEM      = 0x3
+} bar_domain_t;
+
+typedef enum _bar_req_t {
+    BAR_READS   = 0x1,
+    BAR_WRITES  = 0x2,
+    BAR_ALL     = 0x3
+} bar_req_t;
+
 typedef enum _addr_dep_type {
     ADDR_DEP_ADDSUB
 } addr_dep_type;
