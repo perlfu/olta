@@ -5,8 +5,9 @@ typedef enum {
     I_LDR,
     I_STR,
     I_MOV,
-    I_DMB_ISH,
-    I_DMB_SY
+    I_DSB,
+    I_DMB,
+    I_ISB
 } ins_t;
 
 typedef enum _val_t {
@@ -18,17 +19,22 @@ typedef enum _val_t {
 } val_t;
 
 typedef enum _reg_flag_t {
-    R_OUTPUT = 0x1,
-    R_ADDRESS = 0x2,
-    R_FLUSH = 0x4,
-    R_PRELOAD = 0x8
+    R_OUTPUT    = 0x1,
+    R_ADDRESS   = 0x2,
+    R_FLUSH     = 0x4,
+    R_PRELOAD   = 0x8
 } reg_flag_t;
 
 typedef enum _ins_flag_t {
-    I_INDIRECT = 0x1,
-    I_OFFSET_REG = 0x2,
-    I_OFFSET_CONST = 0x4,
-    I_CONST = 0x8
+    I_INDIRECT      = 0x1,
+    I_OFFSET_REG    = 0x2,
+    I_OFFSET_CONST  = 0x4,
+    I_CONST         = 0x8,
+    I_BAR_LD        = 0x0100,
+    I_BAR_ST        = 0x0200,
+    I_BAR_ISH       = 0x0400,
+    I_BAR_OSH       = 0x0800,
+    I_BAR_NSH       = 0x1000,
 } ins_flag_t;
 
 typedef struct _ins_arg_t {

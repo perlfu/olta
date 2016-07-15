@@ -632,15 +632,37 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             d->flags |= I_CONST;
 
         return 1;
-    } else if (strcmp(line, "dmb ish") == 0) {
-        d->ins = I_DMB_ISH;
+    } else if ((line[0] == 'd' || line[0] == 'i') && (line[1] == 'm' || line[1] == 's') && (line[2] == 'b')) {
         d->size = 0;
         d->n_arg = 0;
-        return 1;
-    } else if (strcmp(line, "dmb sy") == 0) {
-        d->ins = I_DMB_SY;
-        d->size = 0;
-        d->n_arg = 0;
+        
+        if (line[0] == 'i') {
+            d->ins = I_ISB;
+        } else if (line[1] == 's') {
+            d->ins = I_DSB;
+        } else {
+            d->ins = I_DMB;
+        }
+
+        if (line[3] == ' ') {
+            int p = 4;
+            if (strncmp(line + p, "ish", 3) == 0) {
+                d->flags |= I_BAR_ISH;
+                p += 3;
+            } else if (strncmp(line + p, "osh", 3) == 0) {
+                d->flags |= I_BAR_OSH;
+                p += 3;
+            } else if (strncmp(line + p, "nsh", 3) == 0) {
+                d->flags |= I_BAR_NSH;
+                p += 3;
+            }
+            if (strcmp(line + p, "st") == 0) {
+                d->flags |= I_BAR_ST;
+            } else if (strcmp(line + p, "ld") == 0) {
+                d->flags |= I_BAR_LD;
+            }
+        }
+            
         return 1;
     } else {
         snprintf(err, BUFFER_LEN - 1, "unknown instruction \"%s\"", line);
@@ -966,8 +988,9 @@ static const char *ins_name(ins_t ins) {
         case I_LDR: return "LDR";
         case I_STR: return "STR";
         case I_MOV: return "MOV";
-        case I_DMB_ISH: return "DMB ISH";
-        case I_DMB_SY: return "DMB SY";
+        case I_DMB: return "DMB";
+        case I_DSB: return "DSB";
+        case I_ISB: return "ISB";
         default: return "UNKNOWN";
     }
 }
@@ -975,7 +998,24 @@ static const char *ins_name(ins_t ins) {
 static void print_ins(ins_desc_t *ins, const char *indent) {
     log_debug_start();
     log_debug_p("%sins %s", indent, ins_name(ins->ins));
-    if (!(ins->ins == I_DMB_SY || ins->ins == I_DMB_ISH)) {
+    if (ins->ins == I_DMB || ins->ins == I_DSB || ins->ins == I_ISB) {
+        log_debug_p(" ");
+        if (ins->flags & I_BAR_ISH) {
+            log_debug_p("ISH");
+        } else if (ins->flags & I_BAR_OSH) {
+            log_debug_p("OSH");
+        } else if (ins->flags & I_BAR_NSH) {
+            log_debug_p("NSH");
+        }
+        if (ins->flags & I_BAR_LD) {
+            log_debug_p("LD");
+        } else if (ins->flags & I_BAR_ST) {
+            log_debug_p("ST");
+        }
+        if (!(ins->flags & (I_BAR_ISH | I_BAR_OSH | I_BAR_NSH | I_BAR_LD | I_BAR_ST))) {
+            log_debug_p("SY");
+        }
+    } else {
         log_debug_p(" size=%d", ins->size);
     }
     if (ins->flags & I_INDIRECT) {

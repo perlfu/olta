@@ -146,10 +146,6 @@ static void _dsb_ishld(asm_ctx_t *ctx) {
     ctx->buf[(ctx->idx)++] = 0xd503399f;
 }
 
-static void _dmb_sy(asm_ctx_t *ctx) {
-    ctx->buf[(ctx->idx)++] = 0xd5033fbf;
-}
-
 static void _dmb_ish(asm_ctx_t *ctx) {
     ctx->buf[(ctx->idx)++] = 0xd5033bbf;
 }
@@ -672,6 +668,10 @@ static int build_mov(asm_ctx_t *ctx, ins_desc_t *desc) {
     return -1;
 }
 
+static int build_bar(asm_ctx_t *ctx, ins_desc_t *desc) {
+    return -1;
+}
+
 static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
     switch (desc->ins) {
         case I_LDR:
@@ -680,12 +680,10 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
             return build_str(ctx, desc);
         case I_MOV:
             return build_mov(ctx, desc);
-        case I_DMB_ISH:
-            _dmb_ish(ctx);
-            return 0;
-        case I_DMB_SY:
-            _dmb_sy(ctx);
-            return 0;
+        case I_DMB:
+        case I_DSB:
+        case I_ISB:
+            return build_bar(ctx, desc);
         default:
             return -1;
     }
