@@ -632,6 +632,27 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             d->flags |= I_CONST;
 
         return 1;
+    } else if (strncmp(line, "eor", 3) == 0) {
+        int p = 3;
+        int ret = parse_ins_args(d, line + p, err);
+        
+        d->ins = I_EOR;
+        
+        if (ret < 0)
+            return ret;
+
+        if (ret < 3) {
+            snprintf(err, BUFFER_LEN - 1, "insufficient arguments \"%s\"", line);
+            return -1;
+        }
+        
+        d->size = d->arg[0].size;
+        if (d->size == 0)
+            d->size = 8;
+        if (d->arg[2].size == -1)
+            d->flags |= I_CONST;
+
+        return 1;
     } else if ((line[0] == 'd' || line[0] == 'i') && (line[1] == 'm' || line[1] == 's') && (line[2] == 'b')) {
         d->size = 0;
         d->n_arg = 0;
@@ -697,7 +718,7 @@ static void tag_ins_args(tthread_t *thread, ins_desc_t *ins) {
 
         if ((ins->ins == I_LDR || ins->ins == I_STR) && (i == 1)) {
                 reg->flags |= R_ADDRESS;
-        } else if (ins->ins == I_LDR) {
+        } else if ((ins->ins == I_LDR) && (i == 0)) {
             reg->flags |= R_OUTPUT;
         }
     }
@@ -991,6 +1012,7 @@ static const char *ins_name(ins_t ins) {
         case I_DMB: return "DMB";
         case I_DSB: return "DSB";
         case I_ISB: return "ISB";
+        case I_EOR: return "EOR";
         default: return "UNKNOWN";
     }
 }
@@ -1032,7 +1054,7 @@ static void print_ins(ins_desc_t *ins, const char *indent) {
     }
     if (ins->n_arg > 0) {
         int i;
-        log_debug_p(" args=");
+        log_debug_p(" args: ");
         for (i = 0; i < ins->n_arg; ++i) {
             log_debug_p("%s%ld (%d)", i > 0 ? ", " : "", ins->arg[i].n, ins->arg[i].size);
         }

@@ -237,6 +237,16 @@ static void _orr(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, 
     }
 }
 
+static void _eor(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    assert(size == 4 || size == 8);
+
+    if (size == 4) {
+        ctx->buf[(ctx->idx)++] = 0x4a000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+    } else if (size == 8) {
+        ctx->buf[(ctx->idx)++] = 0xca000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+    }
+}
+
 static void _mov(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
     _orr(ctx, 8, dst_r, XZR, src_r, SHIFT_LSL, 0, 0);
 }
@@ -617,7 +627,7 @@ static int build_ldr(asm_ctx_t *ctx, ins_desc_t *desc) {
                     _ldr_ind_by_size(ctx, size, dst_a->n, addr_a->n, offset_a->n);
                     return 0;
                 } else if (desc->flags & I_OFFSET_REG) {
-                    // FIXME: check if this should be scaled or not
+                    // XXX: note, not scaled, this seems to be the expected behaviour
                     _ldr_ind_by_size_offset_r(ctx, size, dst_a->n, addr_a->n, offset_a->n, 0);
                     return 0;
                 }
@@ -642,7 +652,7 @@ static int build_str(asm_ctx_t *ctx, ins_desc_t *desc) {
                     _str_ind_by_size(ctx, size, src_a->n, addr_a->n, offset_a->n);
                     return 0;
                 } else if (desc->flags & I_OFFSET_REG) {
-                    // FIXME: check if this should be scaled or not
+                    // XXX: note, not scaled, this seems to be the expected behaviour
                     _str_ind_by_size_offset_r(ctx, size, src_a->n, addr_a->n, offset_a->n, 0);
                     return 0;
                 }
@@ -664,6 +674,24 @@ static int build_mov(asm_ctx_t *ctx, ins_desc_t *desc) {
                 _orr(ctx, dst_a->size, dst_a->n, XZR, src_a->n, SHIFT_LSL, 0, 0);
             }
             return 0;
+        }
+    }
+    return -1;
+}
+
+static int build_eor(asm_ctx_t *ctx, ins_desc_t *desc) {
+    if (desc->n_arg >= 3) {
+        if (desc->flags & I_CONST) {
+            return -1; // currently unsupported
+        } else if (desc->n_arg == 3) {
+            ins_arg_t *dst_a = &(desc->arg[0]);
+            ins_arg_t *src0_a = &(desc->arg[1]);
+            ins_arg_t *src1_a = &(desc->arg[2]);
+        
+            if (dst_a->size == 4 || dst_a->size == 8) {
+                _eor(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0);
+                return 0;
+            }
         }
     }
     return -1;
@@ -706,6 +734,8 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
             return build_str(ctx, desc);
         case I_MOV:
             return build_mov(ctx, desc);
+        case I_EOR:
+            return build_eor(ctx, desc);
         case I_DMB:
         case I_DSB:
         case I_ISB:
