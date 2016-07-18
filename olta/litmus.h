@@ -8,7 +8,8 @@ typedef enum {
     I_DSB,
     I_DMB,
     I_ISB,
-    I_EOR
+    I_EOR,
+    I_ADD
 } ins_t;
 
 typedef enum _val_t {

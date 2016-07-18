@@ -632,11 +632,16 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             d->flags |= I_CONST;
 
         return 1;
-    } else if (strncmp(line, "eor", 3) == 0) {
+    } else if (strncmp(line, "eor", 3) == 0 || strncmp(line, "add", 3) == 0) {
         int p = 3;
         int ret = parse_ins_args(d, line + p, err);
         
-        d->ins = I_EOR;
+        if (line[0] == 'e')
+            d->ins = I_EOR;
+        else if (line[0] == 'a')
+            d->ins = I_ADD;
+        else
+            assert(0);
         
         if (ret < 0)
             return ret;
@@ -1013,6 +1018,7 @@ static const char *ins_name(ins_t ins) {
         case I_DSB: return "DSB";
         case I_ISB: return "ISB";
         case I_EOR: return "EOR";
+        case I_ADD: return "ADD";
         default: return "UNKNOWN";
     }
 }

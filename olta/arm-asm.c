@@ -4,10 +4,6 @@ static void _nop(asm_ctx_t *ctx) {
     ctx->buf[ctx->idx++] = 0xd503201f;
 }
 
-static void _add_const(asm_ctx_t *ctx, reg_t reg, int val) {
-    ctx->buf[ctx->idx++] = 0x91000000 | (reg & 0x1f) | ((reg & 0x1f) << 5) | ((val & 0xfff) << 10);
-}
-
 static void _sub_const(asm_ctx_t *ctx, reg_t reg, int val) {
     ctx->buf[ctx->idx++] = 0xd1000000 | (reg & 0x1f) | ((reg & 0x1f) << 5) | ((val & 0xfff) << 10);
 }
@@ -175,21 +171,6 @@ static void _nop_pad_to(asm_ctx_t *ctx, int target) {
     }
 }
 
-__attribute__ ((unused))
-static void _atomic_add_const(asm_ctx_t *ctx, reg_t addr_r, int val) {
-    ctx->buf[(ctx->idx)++] = 0xc85f7c00 | (addr_r << 5) | (ctx->r_tmp0); /* ldxr t0, addr_r */
-    _add_const(ctx, ctx->r_tmp0, val);
-    ctx->buf[(ctx->idx)++] = 0xc8007c00 | (ctx->r_tmp1 << 16) | (addr_r << 5) | (ctx->r_tmp0); /* stxr tw1, t0, addr_r  */
-    ctx->buf[(ctx->idx)++] = 0x35ffffa0 | (ctx->r_tmp1); /* cbnz tw1, - */
-}
-
-static void _atomic_sub_const(asm_ctx_t *ctx, reg_t addr_r, int val) {
-    ctx->buf[(ctx->idx)++] = 0xc85f7c00 | (addr_r << 5) | (ctx->r_tmp0); /* ldxr t0, addr_r */
-    _sub_const(ctx, ctx->r_tmp0, val);
-    ctx->buf[(ctx->idx)++] = 0xc8007c00 | (ctx->r_tmp1 << 16) | (addr_r << 5) | (ctx->r_tmp0); /* stxr tw1, t0, addr_r  */
-    ctx->buf[(ctx->idx)++] = 0x35ffffa0 | (ctx->r_tmp1); /* cbnz tw1, - */
-}
-
 static void _flush_dcache(asm_ctx_t *ctx, reg_t addr_r) {
     ctx->buf[(ctx->idx)++] = 0xd50b7e20 | addr_r;
 }
@@ -247,6 +228,37 @@ static void _eor(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, 
     }
 }
 
+static void _addi(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
+    int shift = shift_amount ? 0x1 : 0x0;
+    
+    assert(size == 4 || size == 8);
+    assert(shift_amount == 0 || shift_amount == 12);
+
+    if (size == 4) {
+        ctx->buf[(ctx->idx)++] = 0x11000000 | (dst_r) | (src_r << 5) | ((value & 0x3ff) << 10) | (shift << 21);
+    } else if (size == 8) {
+        ctx->buf[(ctx->idx)++] = 0x91000000 | (dst_r) | (src_r << 5) | ((value & 0x3ff) << 10) | (shift << 21);
+    }
+}
+
+static void _add_const(asm_ctx_t *ctx, reg_t reg, int val) {
+    _addi(ctx, 8, reg, reg, val, 0);
+}
+
+static void _add(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    assert(size == 4 || size == 8);
+
+    if (size == 4) {
+        ctx->buf[(ctx->idx)++] = 0x0b000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+    } else if (size == 8) {
+        ctx->buf[(ctx->idx)++] = 0x8b000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+    }
+}
+
+static void __add(asm_ctx_t *ctx, reg_t dst_r, reg_t reg0, reg_t reg1) {
+    _add(ctx, 8, dst_r, reg0, reg1, SHIFT_LSL, 0, 0);
+}
+
 static void _mov(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
     _orr(ctx, 8, dst_r, XZR, src_r, SHIFT_LSL, 0, 0);
 }
@@ -254,11 +266,6 @@ static void _mov(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
 __attribute__ ((unused))
 static void _and(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r, reg_t mask_r) {
     ctx->buf[(ctx->idx)++] = 0x8a000000 | (dst_r) | (src_r << 5) | (mask_r << 16);
-}
-
-__attribute__ ((unused))
-static void _add(asm_ctx_t *ctx, reg_t dst_r, reg_t reg0, reg_t reg1) {
-    ctx->buf[(ctx->idx)++] = 0x8b000000 | (dst_r) | (reg0 << 5) | (reg1 << 16);
 }
 
 __attribute__ ((unused))
@@ -305,17 +312,33 @@ static void _wait_for_val(asm_ctx_t *ctx, reg_t addr_r, reg_t val_r, int stall) 
 }
 
 static void _data_dep(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
-    _add(ctx, dst_r, dst_r, src_r);
+    __add(ctx, dst_r, dst_r, src_r);
 }
 
 static void _addr_dep(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
     if (ctx->addr_dep == ADDR_DEP_ADDSUB) {
-        _add(ctx, dst_r, dst_r, src_r);
+        __add(ctx, dst_r, dst_r, src_r);
         _sub(ctx, dst_r, dst_r, src_r);
     } else {
         assert(0);
     }
 }
+
+__attribute__ ((unused))
+static void _atomic_add_const(asm_ctx_t *ctx, reg_t addr_r, int val) {
+    ctx->buf[(ctx->idx)++] = 0xc85f7c00 | (addr_r << 5) | (ctx->r_tmp0); /* ldxr t0, addr_r */
+    _add_const(ctx, ctx->r_tmp0, val);
+    ctx->buf[(ctx->idx)++] = 0xc8007c00 | (ctx->r_tmp1 << 16) | (addr_r << 5) | (ctx->r_tmp0); /* stxr tw1, t0, addr_r  */
+    ctx->buf[(ctx->idx)++] = 0x35ffffa0 | (ctx->r_tmp1); /* cbnz tw1, - */
+}
+
+static void _atomic_sub_const(asm_ctx_t *ctx, reg_t addr_r, int val) {
+    ctx->buf[(ctx->idx)++] = 0xc85f7c00 | (addr_r << 5) | (ctx->r_tmp0); /* ldxr t0, addr_r */
+    _sub_const(ctx, ctx->r_tmp0, val);
+    ctx->buf[(ctx->idx)++] = 0xc8007c00 | (ctx->r_tmp1 << 16) | (addr_r << 5) | (ctx->r_tmp0); /* stxr tw1, t0, addr_r  */
+    ctx->buf[(ctx->idx)++] = 0x35ffffa0 | (ctx->r_tmp1); /* cbnz tw1, - */
+}
+
 
 typedef struct _bootrec_t {
     uint64_t *sync_a;
@@ -509,7 +532,7 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
                     _mov_const(ctx, data_r, 0);
                 _ldr_ind_by_size_offset_r(ctx, size, data_r, base_r, idx_r, 0);
                 if (ao & AO_UPDATE_SR)
-                    _add(ctx, ctx->r_stall, ctx->r_stall, data_r); 
+                    __add(ctx, ctx->r_stall, ctx->r_stall, data_r); 
             } else {
                 _str_ind_by_size_offset_r(ctx, size, ctx->r_stall, base_r, idx_r, 0);
                 if (ao & AO_UPDATE_SR)
@@ -679,14 +702,40 @@ static int build_mov(asm_ctx_t *ctx, ins_desc_t *desc) {
     return -1;
 }
 
+static int build_add(asm_ctx_t *ctx, ins_desc_t *desc) {
+    if (desc->n_arg >= 3) {
+        ins_arg_t *dst_a = &(desc->arg[0]);
+        ins_arg_t *src0_a = &(desc->arg[1]);
+        ins_arg_t *src1_a = &(desc->arg[2]);
+  
+        // FIXME: add shift support
+        if (desc->n_arg == 4)
+            return -1;
+
+        if (dst_a->size == 4 || dst_a->size == 8) {
+            if (desc->flags & I_CONST) {
+                _addi(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, 0);
+            } else {
+                _add(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0);
+            }
+            return 0;
+        }
+    }
+    return -1;
+}
+
 static int build_eor(asm_ctx_t *ctx, ins_desc_t *desc) {
     if (desc->n_arg >= 3) {
         if (desc->flags & I_CONST) {
-            return -1; // currently unsupported
+            return -1; // FIXME: currently unsupported
         } else if (desc->n_arg == 3) {
             ins_arg_t *dst_a = &(desc->arg[0]);
             ins_arg_t *src0_a = &(desc->arg[1]);
             ins_arg_t *src1_a = &(desc->arg[2]);
+            
+            // FIXME: add shift support
+            if (desc->n_arg == 4)
+                return -1;
         
             if (dst_a->size == 4 || dst_a->size == 8) {
                 _eor(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0);
@@ -736,6 +785,8 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
             return build_mov(ctx, desc);
         case I_EOR:
             return build_eor(ctx, desc);
+        case I_ADD:
+            return build_add(ctx, desc);
         case I_DMB:
         case I_DSB:
         case I_ISB:
