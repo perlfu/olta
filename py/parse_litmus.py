@@ -17,7 +17,7 @@ def parse_litmus(lines):
     var_start = re.compile(r'.*{\s*')
     var_end = re.compile(r'.*}\s*')
     var_dt = re.compile(r'(\S+)\s*=\s*(\S+)\s*;')
-    var_def = re.compile(r'([^= ;]+) +(\S+)\s*;')
+    var_def = re.compile(r'([^= ;]+) +([^= ;]+)\s*;')
     is_int = re.compile(r'(0x[0-9a-fA-F]+|[0-9]+)')
     is_th_assignment = re.compile(r'(\d+):(\S+)')
 
@@ -81,9 +81,10 @@ def serialise_litmus(test):
     lines = []
     lines.append('%s %s' % (test['arch'], test['name']))
     lines.append('{')
-    for (name, spec) in test['vars'].items():
+    for name in sorted(test['vars'].keys()):
+        spec = test['vars'][name]
         lines.append('%s %s;' % (spec['type'], name))
-        for assignment in spec['assign']:
+        for assignment in sorted(spec['assign']):
             lines.append(':'.join(assignment) + ' = ' + name + ';')
     for assignment in sorted(test['const'].keys()):
         lines.append(assignment + ' = ' + test['const'][assignment] + ';')
@@ -136,18 +137,45 @@ def rewrite_ins(ins, subs):
 
 def rewrite_defs(test):
     names = {}
+    tidx = {}
+
+    is_int = re.compile(r'(0x\d+|\d+)')
+    const_check = []
+    
     for (sub, var) in test['const'].items():
         if sub[0] == '%':
             if var not in names:
                 names[var] = {}
-            names[var][sub] = None 
-   
+            names[var][sub] = None
+        else:
+            const_check.append(sub)
+            if not is_int.match(var):
+                if var not in names:
+                    names[var] = {}
+
     for var in names.keys():
         if var not in test['vars']:
             test['vars'][var] = { 'type': 'uint64_t', 'assign': [] }
 
     for (name, idx) in zip(test['thread_names'], range(len(test['thread_names']))):
-        ins = test['threads'][name]
+        tidx[name] = idx
+
+    for sub in const_check:
+        var = test['const'][sub]
+        ps = sub.split(':', 2)[:]
+        if len(ps) == 2:
+            if ps[0] in tidx:
+                ps[0] = str(tidx[ps[0]])
+                if ps[1][0] == 'R':
+                    ps[1] = 'X' + ps[1][1:]
+            del test['const'][sub]
+            if var in names:
+                test['vars'][var]['assign'].append(tuple(ps))
+            else:
+                test['const'][':'.join(ps)] = var
+
+    for (name, ins) in test['threads'].items():
+        idx = tidx[name]
         regs = arm_registers(ins)
 
         _parts = ins_parts(ins)

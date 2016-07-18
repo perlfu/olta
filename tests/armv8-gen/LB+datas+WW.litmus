@@ -1,15 +1,15 @@
 AArch64 LB+datas+WW
 {
-uint64_t y;
-0:X3 = y;
+uint64_t a;
+1:X5 = a;
 uint64_t x;
 0:X4 = x;
 1:X3 = x;
+uint64_t y;
+0:X3 = y;
 uint64_t z;
 0:X5 = z;
 1:X4 = z;
-uint64_t a;
-1:X5 = a;
 }
  P0             | P1             ;
  LDR X0, [X4]   | LDR X0, [X4]   ;

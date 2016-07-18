@@ -1,8 +1,9 @@
 AArch64 CoRR1
 {
-P0:R2 = 2;
-P0:R5 = x;
-P1:R5 = x;
+uint64_t x;
+0:X5 = x;
+1:X5 = x;
+0:X2 = 2;
 x = 1;
 }
  P0        | P1        ;

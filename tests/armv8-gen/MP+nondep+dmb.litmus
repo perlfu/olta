@@ -1,11 +1,14 @@
 AArch64 MP+nondep+dmb
 {
-P0:R1 = y;
-P0:R2 = 1;
-P0:R5 = x;
-P0:R6 = 0;
-P1:R5 = x;
-P1:R6 = y;
+uint64_t x;
+0:X5 = x;
+1:X5 = x;
+uint64_t y;
+0:X1 = y;
+1:X6 = y;
+uint64_t z;
+0:X2 = 1;
+0:X6 = 0;
 x = z;
 y = 0;
 z = 0;

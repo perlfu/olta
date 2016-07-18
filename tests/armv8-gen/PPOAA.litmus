@@ -1,10 +1,13 @@
 AArch64 PPOAA
 {
-P0:R7 = y;
-P0:R8 = z;
-P1:R7 = y;
-P1:R8 = z;
-P1:R9 = x;
+uint64_t x;
+1:X9 = x;
+uint64_t y;
+0:X7 = y;
+1:X7 = y;
+uint64_t z;
+0:X8 = z;
+1:X8 = z;
 }
  P0        | P1              ;
  mov X1,#1 | ldr X1,X7       ;

@@ -1,11 +1,11 @@
 AArch64 MP+dmbs
 {
-uint64_t y;
-0:X2 = y;
-1:X2 = y;
 uint64_t x;
 0:X3 = x;
 1:X3 = x;
+uint64_t y;
+0:X2 = y;
+1:X2 = y;
 }
  P0           | P1           ;
  MOV X0, #1   | LDR X0, [X2] ;

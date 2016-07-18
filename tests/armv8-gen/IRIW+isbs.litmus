@@ -1,13 +1,13 @@
 AArch64 IRIW+isbs
 {
-uint64_t y;
-1:X2 = y;
-2:X1 = y;
-3:X2 = y;
 uint64_t x;
 0:X1 = x;
 1:X3 = x;
 3:X3 = x;
+uint64_t y;
+1:X2 = y;
+2:X1 = y;
+3:X2 = y;
 }
  P0           | P1           | P2           | P3           ;
  MOV X0, #1   | LDR X0, [X3] | MOV X0, #1   | LDR X0, [X2] ;

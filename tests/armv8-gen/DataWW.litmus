@@ -1,11 +1,11 @@
 AArch64 DataWW
 {
-uint64_t y;
-0:X2 = y;
-1:X3 = y;
 uint64_t x;
 0:X3 = x;
 1:X4 = x;
+uint64_t y;
+0:X2 = y;
+1:X3 = y;
 uint64_t z;
 1:X5 = z;
 }
