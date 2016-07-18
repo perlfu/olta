@@ -10,7 +10,7 @@ uint64_t y;
 }
  P0           | P1           | P2           ;
  MOV X0, #1   | LDR X0, [X3] | LDR X0, [X2] ;
- STR X0, [X1] | DSB          | DSB          ;
+ STR X0, [X1] | DSB SY       | DSB SY       ;
               | MOV X1, #1   | LDR X1, [X3] ;
               | STR X1, [X2] |              ;
 exists

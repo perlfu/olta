@@ -12,7 +12,7 @@ uint64_t z;
  P0           | P1             ;
  MOV X0, #1   | LDR X0, [X4]   ;
  STR X0, [X3] | EOR X1,X0,X0   ;
- DMB ISH      | ADD X1, X1, #1 ;
+ DMB SY       | ADD X1, X1, #1 ;
  MOV X1, #1   | STR X1, [X6]   ;
  STR X1, [X2] | LDR X2, [X6]   ;
               | CMP X2, X2     ;

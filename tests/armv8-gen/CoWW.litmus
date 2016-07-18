@@ -5,7 +5,7 @@ uint64_t x;
 0:X1 = 1;
 0:X2 = 2;
 }
- P0        ;
- str X1,X5 ;
- str X2,X5 ;
+ P0          ;
+ str X1,[X5] ;
+ str X2,[X5] ;
 ~exists (x=1)

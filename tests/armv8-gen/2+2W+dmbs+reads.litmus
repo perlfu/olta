@@ -13,10 +13,10 @@ uint64_t y;
 1:X1 = 1;
 1:X2 = 2;
 }
- P0        | P1        | P2        | P3        ;
- str X2,X5 | str X2,X6 | ldr X1,X5 | ldr X1,X6 ;
- DMB ISH   | DMB ISH   | ldr X2,X5 | ldr X2,X6 ;
- str X1,X6 | str X1,X5 |           |           ;
+ P0          | P1          | P2          | P3          ;
+ str X2,[X5] | str X2,[X6] | ldr X1,[X5] | ldr X1,[X6] ;
+ dmb SY      | dmb SY      | ldr X2,[X5] | ldr X2,[X6] ;
+ str X1,[X6] | str X1,[X5] |             |             ;
 locations [x; y; P2:X1; P2:X2; P3:X1; P3:X2]
 ~exists (P2:X1=1 /\ P2:X2=2 /\ P3:X1=1 /\ P3:X2=2)
 

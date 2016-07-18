@@ -9,15 +9,15 @@ uint64_t z;
 0:X8 = z;
 1:X8 = z;
 }
- P0        | P1              ;
- mov X1,#1 | ldr X1,X7       ;
- str X1,X8 | cmp X1,#0       ;
- DMB ISH   | beq L00         ;
- mov X2,#1 | L00:            ;
- str X2,X7 | mov X3,#1       ;
-           | str X3,X9       ;
-           | ldr X2,X9       ;
-           | and X10,X2,#0   ;
-           | ldr X4,[X10,X8] ;
+ P0          | P1              ;
+ mov X1,#1   | ldr X1,[X7]     ;
+ str X1,[X8] | cmp X1,#0       ;
+ dmb SY      | beq L00         ;
+ mov X2,#1   | L00:            ;
+ str X2,[X7] | mov X3,#1       ;
+             | str X3,[X9]     ;
+             | ldr X2,[X9]     ;
+             | and X10,X2,#0   ;
+             | ldr X4,[X10,X8] ;
 locations [P1:X1; P1:X4;]
 exists (P1:X1=1  /\ P1:X4=0)

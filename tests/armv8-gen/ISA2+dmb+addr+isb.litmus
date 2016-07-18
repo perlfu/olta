@@ -13,7 +13,7 @@ uint64_t z;
  P0           | P1              | P2           ;
  MOV X0, #1   | LDR X0, [X3]    | LDR X0, [X3] ;
  STR X0, [X3] | EOR X1,X0,X0    | ISB          ;
- DMB ISH      | MOV X2, #1      | LDR X1, [X2] ;
+ DMB SY       | MOV X2, #1      | LDR X1, [X2] ;
  MOV X1, #1   | STR X2, [X1,X4] |              ;
  STR X1, [X2] |                 |              ;
 exists

@@ -142,6 +142,7 @@ def rewrite_defs(test):
     is_int = re.compile(r'(0x\d+|\d+)')
     const_check = []
     
+    # look through constants for things out of place
     for (sub, var) in test['const'].items():
         if sub[0] == '%':
             if var not in names:
@@ -153,13 +154,16 @@ def rewrite_defs(test):
                 if var not in names:
                     names[var] = {}
 
+    # create any varibles required
     for var in names.keys():
         if var not in test['vars']:
             test['vars'][var] = { 'type': 'uint64_t', 'assign': [] }
 
+    # generate thread indexes
     for (name, idx) in zip(test['thread_names'], range(len(test['thread_names']))):
         tidx[name] = idx
 
+    # check for register and variable assignments marked as constants
     for sub in const_check:
         var = test['const'][sub]
         ps = sub.split(':', 2)[:]
@@ -174,6 +178,7 @@ def rewrite_defs(test):
             else:
                 test['const'][':'.join(ps)] = var
 
+    # assign per thread registers to variables
     for (name, ins) in test['threads'].items():
         idx = tidx[name]
         regs = arm_registers(ins)
@@ -209,8 +214,14 @@ def arm_to_v8_ins(ins):
                     m = old_reg_re.match(p)
                     parts[pi] = 'X' + m.group(1)
 
-            if (name == 'DMB') and (len(parts) == 1):
-                parts[0] = 'DMB ISH'
+            # add domain for DMB/DSB
+            if (name == 'DMB' or name == 'DSB') and (len(parts) == 1):
+                parts[0] = parts[0] + ' SY'
+
+            # add missing square braces for STR/LDR
+            if (name == 'STR' or name == 'LDR') and (len(parts) == 5):
+                if parts[4][0] != '[':
+                    parts[4] = '[' + parts[4] + ']'
         
         res.append(''.join(parts))
     return res

@@ -10,7 +10,7 @@ uint64_t y;
  P0           | P1           ;
  MOV X0, #1   | MOV X0, #2   ;
  STR X0, [X3] | STR X0, [X2] ;
- MOV X1, #1   | DSB          ;
+ MOV X1, #1   | DSB SY       ;
  STR X1, [X2] | LDR X1, [X3] ;
 exists
 (y=2 /\ 1:X1=0)

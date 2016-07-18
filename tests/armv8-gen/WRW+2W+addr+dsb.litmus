@@ -11,7 +11,7 @@ uint64_t y;
  P0           | P1              | P2           ;
  MOV X0, #2   | LDR X0, [X4]    | MOV X0, #2   ;
  STR X0, [X1] | EOR X1,X0,X0    | STR X0, [X2] ;
-              | MOV X2, #1      | DSB          ;
+              | MOV X2, #1      | DSB SY       ;
               | STR X2, [X1,X3] | MOV X1, #1   ;
               |                 | STR X1, [X3] ;
 exists

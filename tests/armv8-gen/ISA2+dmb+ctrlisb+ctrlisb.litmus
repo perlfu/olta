@@ -13,7 +13,7 @@ uint64_t z;
  P0           | P1           | P2           ;
  MOV X0, #1   | LDR X0, [X2] | LDR X0, [X3] ;
  STR X0, [X3] | CMP X0, X0   | CMP X0, X0   ;
- DMB ISH      | BNE LC00     | BNE LC01     ;
+ DMB SY       | BNE LC00     | BNE LC01     ;
  MOV X1, #1   | LC00:        | LC01:        ;
  STR X1, [X2] | ISB          | ISB          ;
               | MOV X1, #1   | LDR X1, [X2] ;
