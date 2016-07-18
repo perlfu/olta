@@ -146,8 +146,8 @@ def rewrite_defs(test):
         if var not in test['vars']:
             test['vars'][var] = { 'type': 'uint64_t', 'assign': [] }
 
-    idx = 0
-    for (name, ins) in test['threads'].items():
+    for (name, idx) in zip(test['thread_names'], range(len(test['thread_names']))):
+        ins = test['threads'][name]
         regs = arm_registers(ins)
 
         _parts = ins_parts(ins)
@@ -163,7 +163,6 @@ def rewrite_defs(test):
                     test['vars'][var]['assign'].append((str(idx), usage[sub])) 
 
         test['threads'][name] = rewrite_ins(ins, usage)
-        idx += 1
 
     for var in names.keys():
         for sub in names[var].keys():

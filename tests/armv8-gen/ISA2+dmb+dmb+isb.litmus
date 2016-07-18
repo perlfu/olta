@@ -1,13 +1,13 @@
 AArch64 ISA2+dmb+dmb+isb
 {
 uint64_t y;
+0:X2 = y;
 1:X2 = y;
-2:X2 = y;
 uint64_t x;
-0:X2 = x;
-1:X3 = x;
+0:X3 = x;
+2:X2 = x;
 uint64_t z;
-0:X3 = z;
+1:X3 = z;
 2:X3 = z;
 }
  P0           | P1           | P2           ;
