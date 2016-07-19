@@ -2,6 +2,7 @@
 #define __LITMUS_H 1
 
 typedef enum {
+    I_INVALID = 0,
     I_LDR,
     I_STR,
     I_MOV,
@@ -9,7 +10,9 @@ typedef enum {
     I_DMB,
     I_ISB,
     I_EOR,
-    I_ADD
+    I_ADD,
+    I_SUB,
+    I_CMP
 } ins_t;
 
 typedef enum _val_t {
@@ -47,6 +50,7 @@ typedef struct _ins_arg_t {
 #define MAX_INS_ARGS (3)
 typedef struct _ins_desc_t {
     ins_t ins;
+    char *label;
     int size;
     int flags;
     int n_arg;

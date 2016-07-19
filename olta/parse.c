@@ -559,6 +559,8 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
     if (line[0] == '\0') return 0;
 
     d = &(thread->ins[thread->n_ins]);
+    d->ins = I_INVALID;
+    d->label = NULL;
 
     if ((strncmp(line, "ldr", 3) == 0) || (strncmp(line, "str", 3) == 0)) {
         int ret;
@@ -632,7 +634,7 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             d->flags |= I_CONST;
 
         return 1;
-    } else if (strncmp(line, "eor", 3) == 0 || strncmp(line, "add", 3) == 0) {
+    } else if (strncmp(line, "eor", 3) == 0 || strncmp(line, "add", 3) == 0 || strncmp(line, "cmp", 3) == 0 || strncmp(line, "sub", 3) == 0) {
         int p = 3;
         int ret = parse_ins_args(d, line + p, err);
         
@@ -640,8 +642,12 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             d->ins = I_EOR;
         else if (line[0] == 'a')
             d->ins = I_ADD;
+        else if (line[0] == 's')
+            d->ins = I_SUB;
+        else if (line[0] == 'c')
+            d->ins = I_CMP;
         else
-            assert(0);
+            return -1;
         
         if (ret < 0)
             return ret;

@@ -4,10 +4,6 @@ static void _nop(asm_ctx_t *ctx) {
     ctx->buf[ctx->idx++] = 0xd503201f;
 }
 
-static void _sub_const(asm_ctx_t *ctx, reg_t reg, int val) {
-    ctx->buf[ctx->idx++] = 0xd1000000 | (reg & 0x1f) | ((reg & 0x1f) << 5) | ((val & 0xfff) << 10);
-}
-
 static void _ldr_ind_by_size(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_addr_r, int offset_idx) {
     uint32_t base = 0;
     switch (size) {
@@ -189,10 +185,6 @@ static void _cbnz(asm_ctx_t *ctx, reg_t reg, int dist) {
     ctx->buf[(ctx->idx)++] = 0xb5000000 | reg | (dist << 5);
 }
 
-static void _cmp(asm_ctx_t *ctx, reg_t reg0, reg_t reg1) {
-    ctx->buf[(ctx->idx)++] = 0xeb00001f | (reg0 << 5) | (reg1 << 16);
-}
-
 __attribute__ ((unused))
 static void _b(asm_ctx_t *ctx, int dist) {
     if (dist < 0) {
@@ -228,36 +220,95 @@ static void _eor(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, 
     }
 }
 
-static void _addi(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
+static void _arithmetic_immediate(asm_ctx_t *ctx, int size, uint32_t base4, uint32_t base8, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
     int shift = shift_amount ? 0x1 : 0x0;
     
     assert(size == 4 || size == 8);
     assert(shift_amount == 0 || shift_amount == 12);
 
     if (size == 4) {
-        ctx->buf[(ctx->idx)++] = 0x11000000 | (dst_r) | (src_r << 5) | ((value & 0x3ff) << 10) | (shift << 21);
+        ctx->buf[(ctx->idx)++] = base4 | (dst_r) | (src_r << 5) | ((value & 0x3ff) << 10) | (shift << 21);
     } else if (size == 8) {
-        ctx->buf[(ctx->idx)++] = 0x91000000 | (dst_r) | (src_r << 5) | ((value & 0x3ff) << 10) | (shift << 21);
+        ctx->buf[(ctx->idx)++] = base8 | (dst_r) | (src_r << 5) | ((value & 0x3ff) << 10) | (shift << 21);
     }
+}
+
+static void _arithmetic_shift_reg(asm_ctx_t *ctx, int size, uint32_t base4, uint32_t base8, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    assert(size == 4 || size == 8);
+
+    if (size == 4) {
+        ctx->buf[(ctx->idx)++] = base4 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+    } else if (size == 8) {
+        ctx->buf[(ctx->idx)++] = base8 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+    }
+}
+
+// --- add
+
+static void _addi(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
+    _arithmetic_immediate(ctx, size, 0x11000000, 0x91000000, dst_r, src_r, value, shift_amount);
+}
+
+static void _addsi(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
+    _arithmetic_immediate(ctx, size, 0x31000000, 0xb1000000, dst_r, src_r, value, shift_amount);
+}
+
+static void _add(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    _arithmetic_shift_reg(ctx, size, 0x0b000000, 0x8b000000, dst_r, reg0, reg1, shift, shift_amount, invert);
+}
+
+static void _adds(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    _arithmetic_shift_reg(ctx, size, 0x2b000000, 0xab000000, dst_r, reg0, reg1, shift, shift_amount, invert);
 }
 
 static void _add_const(asm_ctx_t *ctx, reg_t reg, int val) {
     _addi(ctx, 8, reg, reg, val, 0);
 }
 
-static void _add(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
-    assert(size == 4 || size == 8);
-
-    if (size == 4) {
-        ctx->buf[(ctx->idx)++] = 0x0b000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
-    } else if (size == 8) {
-        ctx->buf[(ctx->idx)++] = 0x8b000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
-    }
-}
-
 static void __add(asm_ctx_t *ctx, reg_t dst_r, reg_t reg0, reg_t reg1) {
     _add(ctx, 8, dst_r, reg0, reg1, SHIFT_LSL, 0, 0);
 }
+
+// --- sub
+
+static void _subi(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
+    _arithmetic_immediate(ctx, size, 0x51000000, 0xd1000000, dst_r, src_r, value, shift_amount);
+}
+
+static void _subsi(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
+    _arithmetic_immediate(ctx, size, 0x71000000, 0xf1000000, dst_r, src_r, value, shift_amount);
+}
+
+static void _sub(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    _arithmetic_shift_reg(ctx, size, 0x4b000000, 0xcb000000, dst_r, reg0, reg1, shift, shift_amount, invert);
+}
+
+static void _subs(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    _arithmetic_shift_reg(ctx, size, 0x6b000000, 0xeb000000, dst_r, reg0, reg1, shift, shift_amount, invert);
+}
+
+static void _sub_const(asm_ctx_t *ctx, reg_t reg, int val) {
+    _subi(ctx, 8, reg, reg, val, 0);
+}
+
+static void __sub(asm_ctx_t *ctx, reg_t dst_r, reg_t reg0, reg_t reg1) {
+    _sub(ctx, 8, dst_r, reg0, reg1, SHIFT_LSL, 0, 0);
+}
+
+static void _cmpi(asm_ctx_t *ctx, int size, reg_t src_r, int value, int shift_amount) {
+    _subsi(ctx, size, XZR, src_r, value, shift_amount);
+}
+
+static void _cmp(asm_ctx_t *ctx, int size, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    _subs(ctx, size, XZR, reg0, reg1, shift, shift_amount, invert);
+}
+
+static void __cmp(asm_ctx_t *ctx, reg_t reg0, reg_t reg1) {
+    _cmp(ctx, 8, reg0, reg1, SHIFT_LSL, 0, 0);
+}
+
+
+// ---
 
 static void _mov(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
     _orr(ctx, 8, dst_r, XZR, src_r, SHIFT_LSL, 0, 0);
@@ -266,11 +317,6 @@ static void _mov(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
 __attribute__ ((unused))
 static void _and(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r, reg_t mask_r) {
     ctx->buf[(ctx->idx)++] = 0x8a000000 | (dst_r) | (src_r << 5) | (mask_r << 16);
-}
-
-__attribute__ ((unused))
-static void _sub(asm_ctx_t *ctx, reg_t dst_r, reg_t reg0, reg_t reg1) {
-    ctx->buf[(ctx->idx)++] = 0xcb000000 | (dst_r) | (reg0 << 5) | (reg1 << 16);
 }
 
 __attribute__ ((unused))
@@ -307,7 +353,7 @@ static void _wait_for_val(asm_ctx_t *ctx, reg_t addr_r, reg_t val_r, int stall) 
     _stall(ctx, stall);
     _dsb_ishld(ctx);
     _ldr_ind(ctx, ctx->r_tmp0, addr_r);
-    _cmp(ctx, val_r, ctx->r_tmp0);
+    __cmp(ctx, val_r, ctx->r_tmp0);
     _bne(ctx, -(3 + stall));
 }
 
@@ -318,7 +364,7 @@ static void _data_dep(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
 static void _addr_dep(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
     if (ctx->addr_dep == ADDR_DEP_ADDSUB) {
         __add(ctx, dst_r, dst_r, src_r);
-        _sub(ctx, dst_r, dst_r, src_r);
+        __sub(ctx, dst_r, dst_r, src_r);
     } else {
         assert(0);
     }
@@ -425,7 +471,7 @@ static void build_rr_sync(asm_ctx_t *ctx, reg_t reg, int this_n, int stall) {
     _msub32(ctx, ctx->r_tmp0, ctx->r_tmp0, ctx->r_threads, ctx->r_iterations);
     
     // are we the sync thread?
-    _cmp(ctx, ctx->r_tmp0, ctx->r_tmp1);
+    __cmp(ctx, ctx->r_tmp0, ctx->r_tmp1);
     _bne(ctx, 2); // no? -> skip code
     
     // yes? -> notify sync
@@ -702,11 +748,20 @@ static int build_mov(asm_ctx_t *ctx, ins_desc_t *desc) {
     return -1;
 }
 
-static int build_add(asm_ctx_t *ctx, ins_desc_t *desc) {
-    if (desc->n_arg >= 3) {
-        ins_arg_t *dst_a = &(desc->arg[0]);
-        ins_arg_t *src0_a = &(desc->arg[1]);
-        ins_arg_t *src1_a = &(desc->arg[2]);
+static int build_arith(asm_ctx_t *ctx, ins_desc_t *desc) {
+    if (desc->n_arg >= 2) {
+        ins_arg_t *dst_a = NULL, *src0_a = NULL, *src1_a = NULL;
+        
+        if (desc->ins == I_CMP) {
+            src0_a = &(desc->arg[0]);
+            src1_a = &(desc->arg[1]);
+        } else if (desc->n_arg >= 3) {
+            dst_a = &(desc->arg[0]);
+            src0_a = &(desc->arg[1]);
+            src1_a = &(desc->arg[2]);
+        } else {
+            return -1;
+        }
   
         // FIXME: add shift support
         if (desc->n_arg == 4)
@@ -714,9 +769,19 @@ static int build_add(asm_ctx_t *ctx, ins_desc_t *desc) {
 
         if (dst_a->size == 4 || dst_a->size == 8) {
             if (desc->flags & I_CONST) {
-                _addi(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, 0);
+                switch (desc->ins) {
+                    case I_ADD: _addi(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, 0); break;
+                    case I_SUB: _subi(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, 0); break;
+                    case I_CMP: _cmpi(ctx, src0_a->size, src0_a->n, src1_a->n, 0); break;
+                    default: assert(0);
+                }
             } else {
-                _add(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0);
+                switch (desc->ins) {
+                    case I_ADD: _add(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
+                    case I_SUB: _sub(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
+                    case I_CMP: _cmp(ctx, src0_a->size, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
+                    default: assert(0);
+                }
             }
             return 0;
         }
@@ -786,7 +851,9 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
         case I_EOR:
             return build_eor(ctx, desc);
         case I_ADD:
-            return build_add(ctx, desc);
+        case I_SUB:
+        case I_CMP:
+            return build_arith(ctx, desc);
         case I_DMB:
         case I_DSB:
         case I_ISB:
@@ -972,7 +1039,7 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
     // inter-iteration
     if (record_timing) {
         _ldr_ind_idx(&ctx, ctx.r_tmp0, ctx.r_bootrec, BOOTREC_TS_PTR);
-        _sub(&ctx, ctx.r_tmp1, ctx.r_ts_end, ctx.r_ts_start);
+        __sub(&ctx, ctx.r_tmp1, ctx.r_ts_end, ctx.r_ts_start);
         _str_ind_r(&ctx, ctx.r_tmp1, ctx.r_tmp0, ctx.r_idx);
     }
     for (i = 0; i < th->n_reg; ++i) {
