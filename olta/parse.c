@@ -601,7 +601,7 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
 
     if (is_label_def(line)) {
         int p = 0, start, end;
-        
+
         while (isspace(line[p]) && (line[p] != '\0'))
             p++;
         start = p;
@@ -617,7 +617,7 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
     } else if ((strncmp(line, "ldr", 3) == 0) || (strncmp(line, "str", 3) == 0)) {
         int ret;
         int p = 3;
-
+        
         if (strncmp(line, "ldr", 3) == 0)
             d->ins = I_LDR;
         else
@@ -786,7 +786,7 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
     } 
 }
 
-static void tag_ins_args(tthread_t *thread, ins_desc_t *ins) {
+static int tag_ins_args(tthread_t *thread, ins_desc_t *ins) {
     int i, j;
 
     for (i = 0; i < ins->n_arg; ++i) {
@@ -801,7 +801,7 @@ static void tag_ins_args(tthread_t *thread, ins_desc_t *ins) {
                 reg = &(thread->reg[j]);
         }
 
-        if (reg == NULL) {
+        if ((reg == NULL) && (thread->n_reg < MAX_THREAD_REG)) {
             reg = &(thread->reg[thread->n_reg]);
             thread->n_reg += 1;
             
@@ -811,12 +811,16 @@ static void tag_ins_args(tthread_t *thread, ins_desc_t *ins) {
             reg->flags = 0;
         }
 
-        if ((ins->ins == I_LDR || ins->ins == I_STR) && (i == 1)) {
-                reg->flags |= R_ADDRESS;
+        if (reg == NULL) {
+            return -1;
+        } else if ((ins->ins == I_LDR || ins->ins == I_STR) && (i == 1)) {
+            reg->flags |= R_ADDRESS;
         } else if ((ins->ins == I_LDR) && (i == 0)) {
             reg->flags |= R_OUTPUT;
         }
     }
+
+    return 0;
 }
 
 
@@ -1027,8 +1031,19 @@ static int parse_test(litmus_t *test) {
                 log_error("parse error, line %d: %s", lptr + i, err);
                 goto errout;
             } else if (ret > 0) {
-                tag_ins_args(t, &(t->ins[t->n_ins]));
+                ret = tag_ins_args(t, &(t->ins[t->n_ins]));
                 t->n_ins += 1;
+
+                if (ret != 0) {
+                    log_error("resource limits (registers?) exceeded by %s line %d", t->name, i);
+                    goto errout;
+                }
+                if (t->n_ins == MAX_THREAD_INS) {
+                    log_error("instruction limit reached for %s", t->name);
+                    goto errout;
+                }
+            } else {
+                log_debug("skipped thread %s line %d", t->name, i);
             }
 
             free(tl);

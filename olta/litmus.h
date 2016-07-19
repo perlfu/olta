@@ -68,7 +68,7 @@ typedef struct _treg_t {
     char name[MAX_TREG_NAME + 1];
 } treg_t;
 
-#define MAX_THREAD_REG (5)
+#define MAX_THREAD_REG (8)
 #define MAX_THREAD_INS (10)
 typedef struct _tthread_t {
     int id;

@@ -936,6 +936,7 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
         case I_ISB:
             return build_bar(ctx, desc);
         default:
+            log_error("unknown instruction %d", desc->ins);
             return -1;
     }
 }
