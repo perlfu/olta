@@ -11,5 +11,6 @@ uint64_t y;
  MOV X0, #1   | MOV X0, #1   ;
  STR X0, [X3] | STR X0, [X2] ;
  LDR X1, [X2] | LDR X1, [X3] ;
+
 exists
 (0:X1=0 /\ 1:X1=0)

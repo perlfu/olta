@@ -21,5 +21,6 @@ uint64_t z;
               | LDR X3, [X8]    ;
               | EOR X4,X3,X3    ;
               | LDR X5, [X4,X7] ;
+
 exists
 (z=2 /\ 1:X0=1 /\ 1:X5=0)

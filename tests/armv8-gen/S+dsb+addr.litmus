@@ -13,5 +13,6 @@ uint64_t y;
  DSB SY       | MOV X2, #1      ;
  MOV X1, #1   | STR X2, [X1,X4] ;
  STR X1, [X2] |                 ;
+
 exists
 (x=2 /\ 1:X0=1)

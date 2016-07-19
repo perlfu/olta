@@ -18,5 +18,6 @@ uint64_t z;
  str X2,[X7] | and X10,X4,#0   |             ;
              | ldr X2,[X10,X8] |             ;
 
+
 locations [1:X1; 1:X2; 1:X3; 1:X4]
 ~exists (P1:X1=2 /\ P1:X2=0 /\ P1:X3=0 /\ P1:X4=1)

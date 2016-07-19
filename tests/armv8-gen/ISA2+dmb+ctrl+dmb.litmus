@@ -17,5 +17,6 @@ uint64_t z;
  MOV X1, #1   | LC00:        |              ;
  STR X1, [X2] | MOV X1, #1   |              ;
               | STR X1, [X3] |              ;
+
 exists
 (1:X0=1 /\ 2:X0=1 /\ 2:X1=0)

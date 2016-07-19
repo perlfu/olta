@@ -17,5 +17,6 @@ uint64_t z;
  STR X1, [X2] | LDR X3, [X7]    ;
               | MOV X4, #1      ;
               | STR X4, [X6]    ;
+
 exists
 (x=2 /\ 1:X0=1)

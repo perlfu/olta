@@ -13,5 +13,6 @@ uint64_t y;
  STR X0, [X1] | DSB SY       | EOR X1,X0,X0    ;
               | MOV X1, #1   | LDR X2, [X1,X4] ;
               | STR X1, [X2] |                 ;
+
 exists
 (1:X0=1 /\ 2:X0=1 /\ 2:X2=0)

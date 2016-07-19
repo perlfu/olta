@@ -12,5 +12,6 @@ uint64_t y;
  STR X0, [X3] | STR X0, [X2] ;
  DSB SY       | LDR X1, [X3] ;
  LDR X1, [X2] |              ;
+
 exists
 (0:X1=0 /\ 1:X1=0)

@@ -8,4 +8,5 @@ uint64_t x;
  ldr X2,[X5] | mov X1,2    ;
  mov X1,1    | str X1,[X5] ;
  str X1,[X5] |             ;
+
 ~exists (x=2 /\ P0:X2=2)

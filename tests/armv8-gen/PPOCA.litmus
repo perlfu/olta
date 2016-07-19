@@ -19,5 +19,6 @@ uint64_t z;
              | ldr X2,[X9]     ;
              | and X10,X2,#0   ;
              | ldr X4,[X10,X8] ;
+
 locations [P1:X1; P1:X4;]
 exists (P1:X1=1  /\ P1:X4=0)

@@ -15,5 +15,6 @@ uint64_t y;
  ISB          | ISB          ;
  MOV X1, #1   | MOV X1, #1   ;
  STR X1, [X2] | STR X1, [X3] ;
+
 exists
 (0:X0=1 /\ 1:X0=1)

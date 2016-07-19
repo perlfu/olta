@@ -12,5 +12,6 @@ uint64_t y;
  EOR X1,X0,X0    | MOV X1, #1   ;
  MOV X2, #1      | STR X1, [X3] ;
  STR X2, [X1,X3] |              ;
+
 exists
 (0:X0=1 /\ 1:X0=1)

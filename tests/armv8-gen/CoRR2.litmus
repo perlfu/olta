@@ -11,6 +11,7 @@ uint64_t x;
  P0          | P1          | P2          | P3          ;
  str X1,[X5] | str X2,[X5] | ldr X1,[X5] | ldr X1,[X5] ;
              |             | ldr X2,[X5] | ldr X2,[X5] ;
+
 ~exists
 (
  (P2:X1=1 /\ P2:X2=2 /\ P3:X1=2 /\ P3:X2=1) \/

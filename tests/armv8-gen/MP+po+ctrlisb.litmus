@@ -14,5 +14,6 @@ uint64_t y;
  STR X1, [X2] | LC00:        ;
               | ISB          ;
               | LDR X1, [X3] ;
+
 exists
 (1:X0=1 /\ 1:X1=0)

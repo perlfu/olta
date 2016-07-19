@@ -13,6 +13,7 @@ def parse_litmus(lines):
 
     arch_re = re.compile(r'^(\S+)\s+(\S+).*')
     thread_re = re.compile(r'.*;\s*$')
+    other_re = re.compile(r'\s*[~]?exists\s*\(.*')
     params_re = re.compile(r'-=-=-')
     var_start = re.compile(r'.*{\s*')
     var_end = re.compile(r'.*}\s*')
@@ -47,7 +48,7 @@ def parse_litmus(lines):
                     mem[name]['assign'].append(v.split(':'))
                 else:
                     assign[v] = name
-        elif (variables == 2) and thread_re.match(line):
+        elif (variables == 2) and thread_re.match(line) and not other_re.match(line):
             thread_ln += 1
             pt = line.replace(';', '').split('|')
             for (i, p) in zip(range(len(pt)), pt):
@@ -98,6 +99,7 @@ def serialise_litmus(test):
             else:
                 strs.append('')
         lines.append(thread_lines(strs, line_width))
+    lines.append('')
     lines.extend(test['other'])
 
     return lines

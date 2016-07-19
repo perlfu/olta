@@ -8,4 +8,5 @@ uint64_t x;
  P0          ;
  str X1,[X5] ;
  str X2,[X5] ;
+
 ~exists (x=1)

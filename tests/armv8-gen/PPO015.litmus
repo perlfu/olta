@@ -22,5 +22,6 @@ uint64_t z;
               | LC00:          ;
               | ISB            ;
               | LDR X4, [X6]   ;
+
 exists
 (z=2 /\ 1:X0=1 /\ 1:X4=0)

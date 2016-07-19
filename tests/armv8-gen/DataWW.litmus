@@ -16,5 +16,6 @@ uint64_t z;
  MOV X1, #1   | STR X1, [X5]   ;
  STR X1, [X2] | MOV X2, #1     ;
               | STR X2, [X4]   ;
+
 exists
 (x=2 /\ 1:X0=1)

@@ -13,5 +13,6 @@ uint64_t y;
  DMB SY       | LDR X1, [X3] ;
  MOV X1, #1   |              ;
  STR X1, [X2] |              ;
+
 exists
 (y=2 /\ 1:X1=0)

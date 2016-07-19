@@ -13,5 +13,6 @@ uint64_t y;
  DSB SY       |              ;
  MOV X1, #1   |              ;
  STR X1, [X2] |              ;
+
 exists
 (1:X0=1 /\ 1:X1=0)

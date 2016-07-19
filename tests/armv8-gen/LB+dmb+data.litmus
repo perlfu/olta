@@ -12,5 +12,6 @@ uint64_t y;
  DMB SY       | EOR X1,X0,X0   ;
  MOV X1, #1   | ADD X1, X1, #1 ;
  STR X1, [X2] | STR X1, [X3]   ;
+
 exists
 (0:X0=1 /\ 1:X0=1)

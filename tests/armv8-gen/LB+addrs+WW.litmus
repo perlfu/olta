@@ -18,5 +18,6 @@ uint64_t z;
  STR X2, [X1,X4] | STR X2, [X1,X6] ;
  MOV X3, #1      | MOV X3, #1      ;
  STR X3, [X6]    | STR X3, [X4]    ;
+
 exists
 (0:X0=1 /\ 1:X0=1)

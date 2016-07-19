@@ -13,11 +13,12 @@ x = z;
 y = 0;
 z = 0;
 }
- P0                                       | P1          ;
- str X1,[X5]                              | ldr X3,[X6] ;
- ldr X6,[X5]                              | dmb SY      ;
- str X2,[X6]                              | ldr X4,[X5] ;
- exists (P1:R3 = 1 /\ P1:R4=z /\ P0:R6=y) |             ;
+ P0          | P1          ;
+ str X1,[X5] | ldr X3,[X6] ;
+ ldr X6,[X5] | dmb SY      ;
+ str X2,[X6] | ldr X4,[X5] ;
 
 
+
+exists (P1:X3 = 1 /\ P1:X4=z /\ P0:X6=y);
 

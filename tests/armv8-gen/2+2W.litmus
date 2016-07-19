@@ -12,5 +12,6 @@ uint64_t y;
  STR X0, [X3] | STR X0, [X2] ;
  MOV X1, #1   | MOV X1, #1   ;
  STR X1, [X2] | STR X1, [X3] ;
+
 exists
 (x=2 /\ y=2)
