@@ -185,19 +185,15 @@ static void _cbnz(asm_ctx_t *ctx, reg_t reg, int dist) {
     ctx->buf[(ctx->idx)++] = 0xb5000000 | reg | (dist << 5);
 }
 
-__attribute__ ((unused))
-static void _b(asm_ctx_t *ctx, int dist) {
+static void _b_cond(asm_ctx_t *ctx, cond_t cond, int dist) {
     if (dist < 0) {
         dist = 0x7ffff + (dist + 1);
     }
-    ctx->buf[(ctx->idx)++] = 0x14000000 | (dist << 5);
+    ctx->buf[(ctx->idx)++] = 0x54000000 | ((dist & 0x7ffff) << 5) | cond;
 }
 
 static void _bne(asm_ctx_t *ctx, int dist) {
-    if (dist < 0) {
-        dist = 0x7ffff + (dist + 1);
-    }
-    ctx->buf[(ctx->idx)++] = 0x54000001 | (dist << 5);
+    _b_cond(ctx, CC_NE, dist);
 }
 
 static void _orr(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
@@ -249,6 +245,7 @@ static void _addi(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_r, int value,
     _arithmetic_immediate(ctx, size, 0x11000000, 0x91000000, dst_r, src_r, value, shift_amount);
 }
 
+__attribute__ ((unused))
 static void _addsi(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
     _arithmetic_immediate(ctx, size, 0x31000000, 0xb1000000, dst_r, src_r, value, shift_amount);
 }
@@ -257,6 +254,7 @@ static void _add(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, 
     _arithmetic_shift_reg(ctx, size, 0x0b000000, 0x8b000000, dst_r, reg0, reg1, shift, shift_amount, invert);
 }
 
+__attribute__ ((unused))
 static void _adds(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
     _arithmetic_shift_reg(ctx, size, 0x2b000000, 0xab000000, dst_r, reg0, reg1, shift, shift_amount, invert);
 }
@@ -767,24 +765,22 @@ static int build_arith(asm_ctx_t *ctx, ins_desc_t *desc) {
         if (desc->n_arg == 4)
             return -1;
 
-        if (dst_a->size == 4 || dst_a->size == 8) {
-            if (desc->flags & I_CONST) {
-                switch (desc->ins) {
-                    case I_ADD: _addi(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, 0); break;
-                    case I_SUB: _subi(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, 0); break;
-                    case I_CMP: _cmpi(ctx, src0_a->size, src0_a->n, src1_a->n, 0); break;
-                    default: assert(0);
-                }
-            } else {
-                switch (desc->ins) {
-                    case I_ADD: _add(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
-                    case I_SUB: _sub(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
-                    case I_CMP: _cmp(ctx, src0_a->size, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
-                    default: assert(0);
-                }
+        if (desc->flags & I_CONST) {
+            switch (desc->ins) {
+                case I_ADD: _addi(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, 0); break;
+                case I_SUB: _subi(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, 0); break;
+                case I_CMP: _cmpi(ctx, src0_a->size, src0_a->n, src1_a->n, 0); break;
+                default: assert(0);
             }
-            return 0;
+        } else {
+            switch (desc->ins) {
+                case I_ADD: _add(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
+                case I_SUB: _sub(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
+                case I_CMP: _cmp(ctx, src0_a->size, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
+                default: assert(0);
+            }
         }
+        return 0;
     }
     return -1;
 }
@@ -840,6 +836,83 @@ static int build_bar(asm_ctx_t *ctx, ins_desc_t *desc) {
     return 0;
 }
 
+static int build_branch_placeholder(asm_ctx_t *ctx, ins_desc_t *desc) {
+    const int n = ctx->n_branch;
+    
+    if (ctx->n_branch == MAX_ASM_BRANCH) {
+        log_error("too many branches %s", ctx->thread->name);
+        return -1;
+    }
+
+    ctx->branch[n].ins = desc;
+    ctx->branch[n].pos = ctx->idx;
+    ctx->n_branch += 1;
+
+    _nop(ctx);
+    
+    return 0;
+}
+
+static int build_branch(asm_ctx_t *ctx, asm_branch_t *br) {
+    const int orig_idx = ctx->idx;
+    int branch_imm = 0;
+    int ok = 1;
+    int i;
+
+    if (br->ins->label) {
+        const char *label = br->ins->label;
+        // find label
+        for (i = 0; i < ctx->n_label; ++i) {
+            if (strcmp(ctx->label[i].name, label) == 0)
+                break;
+        }
+        if (i == ctx->n_label) {
+            log_error("unable to link branch with label %s in %s", label, ctx->thread->name);
+            return -1;
+        }
+        branch_imm = ctx->label[i].pos - br->pos;
+    } else {
+        if (br->ins->n_arg == 1) {
+            branch_imm = br->ins->arg[0].n;
+        } else {
+            log_error("branch with no destination %s", ctx->thread->name);
+            return -1;
+        }
+    }
+
+    ctx->idx = br->pos;
+    switch (br->ins->ins) {
+        case I_BNE: 
+            _bne(ctx, branch_imm);
+            break;
+        default:
+            ok = 0;
+            break;
+    }
+    ctx->idx = orig_idx;
+
+    if (ok) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+static int build_label(asm_ctx_t *ctx, ins_desc_t *desc) {
+    const int n = ctx->n_label;
+    
+    if (ctx->n_label == MAX_ASM_LABEL) {
+        log_error("too many labels %s", ctx->thread->name);
+        return -1;
+    }
+
+    ctx->label[n].name = desc->label;
+    ctx->label[n].pos = ctx->idx;
+    ctx->n_label += 1;
+    
+    return 0;
+}
+
 static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
     switch (desc->ins) {
         case I_LDR:
@@ -854,6 +927,10 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
         case I_SUB:
         case I_CMP:
             return build_arith(ctx, desc);
+        case I_BNE:
+            return build_branch_placeholder(ctx, desc);
+        case I_LABEL:
+            return build_label(ctx, desc);
         case I_DMB:
         case I_DSB:
         case I_ISB:
@@ -890,6 +967,11 @@ static void build_test(asm_ctx_t *ctx) {
     }
     if (th_post)
         build_ancillary(ctx, test, th, NULL, NULL, -2, th_post);
+
+    // fill in branches
+    for (i_n = 0; i_n < ctx->n_branch; ++i_n) {
+        build_branch(ctx, &(ctx->branch[i_n]));
+    }
 }
 
 static void report_code(const char *name, uint32_t *ins, int len) {
@@ -928,6 +1010,8 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
     ctx.test = test;
     ctx.thread = th;
     ctx.thread_ctx = thread_ctx;
+    ctx.n_label = 0;
+    ctx.n_branch = 0;
 
     // config context
     if ((cfg = config_lookup_var_str(test, "addr-dep", NULL))) {

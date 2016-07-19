@@ -49,6 +49,25 @@ typedef enum _shift_t {
     SHIFT_ROR = 0x3
 } shift_t;
 
+typedef enum _cond_t {
+    CC_EQ = 0x0,
+    CC_NE = 0x1,
+    CC_CS = 0x2,
+    CC_CC = 0x3,
+    CC_MI = 0x4,
+    CC_PL = 0x5,
+    CC_VS = 0x6,
+    CC_VC = 0x7,
+    CC_HI = 0x8,
+    CC_LS = 0x9,
+    CC_GE = 0xA,
+    CC_LT = 0xB,
+    CC_GT = 0xC,
+    CC_LE = 0xD,
+    CC_AL = 0xE,
+    CC_NV = 0xF
+} cond_t;
+
 typedef enum _bar_type_t {
     BAR_DSB = 0x0,
     BAR_DMB = 0x1,
@@ -72,6 +91,18 @@ typedef enum _addr_dep_type {
     ADDR_DEP_ADDSUB
 } addr_dep_type;
 
+typedef struct _asm_label_t {
+    const char *name;
+    int pos;
+} asm_label_t;
+
+typedef struct _asm_branch_t {
+    ins_desc_t *ins;
+    int pos;
+} asm_branch_t;
+
+#define MAX_ASM_LABEL 2
+#define MAX_ASM_BRANCH 2
 typedef struct _asm_ctx_t {
     uint32_t *buf;
     int idx;
@@ -91,7 +122,12 @@ typedef struct _asm_ctx_t {
     reg_t r_buf_shr_idx;
     reg_t r_ts_start, r_ts_end;
     reg_t r_reg[MAX_THREAD_REG];
+    /* labels */
     int l_head;
+    int n_label;
+    asm_label_t label[MAX_ASM_LABEL];
+    int n_branch;
+    asm_branch_t branch[MAX_ASM_BRANCH];
 } asm_ctx_t;
 
 
