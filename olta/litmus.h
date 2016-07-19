@@ -69,7 +69,7 @@ typedef struct _treg_t {
 } treg_t;
 
 #define MAX_THREAD_REG (8)
-#define MAX_THREAD_INS (10)
+#define MAX_THREAD_INS (16)
 typedef struct _tthread_t {
     int id;
     char *name;
