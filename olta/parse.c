@@ -335,20 +335,28 @@ static int match_line(const char *line, const char *content) {
  * If >0, the value returned indicates number of threads.
  */
 static int match_thread_line(const char *line) {
-    int p = 0;
+    int p = 0, f_char = -1;
     int pipes = 0;
     char last_ns = '\0';
     while (line[p] != '\0') {
         if (line[p] == '|')
             pipes += 1;
-        if (!isspace(line[p]))
+        if (!isspace(line[p])) {
+            if (f_char < 0)
+                f_char = p;
             last_ns = line[p];
+        }
         p += 1;
     }
-    if (pipes >= 1 && last_ns == ';')
+    if (last_ns == ';') {
+        if (pipes == 0) {
+            if ((strncmp(line + f_char, "exists", 6) == 0) || (strncmp(line + f_char, "~exists", 7) == 0))
+                return 0;
+        }
         return pipes + 1;
-    else
+    } else {
         return 0;
+    }
 }
 
 static char *strdup_tolower(const char *src, int len) {
