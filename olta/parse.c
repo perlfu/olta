@@ -553,6 +553,42 @@ static int parse_ins_args(ins_desc_t *ins, const char *line, char *err) {
     return arg_n;
 }
 
+static int is_label_def(const char *line) {
+    int ptr = 0, f_char = -1, l_char = -1, colon = 0;
+    
+    while (line[ptr] != '\0') {
+        if ((f_char < 0) && isspace(line[ptr])) {
+            ptr += 1;
+        } else if (f_char < 0) {
+            f_char = ptr;
+            ptr += 1;
+        } else if (l_char < 0) {
+            if (line[ptr] == ':') {
+                colon = 1;
+                l_char = ptr - 1;
+            } else if (isspace(line[ptr])) {
+                l_char = ptr - 1;
+            }
+            ptr += 1;
+        } else if (colon == 0) {
+            if (line[ptr] == ':')
+                colon = ptr;
+            else if (!isspace(line[ptr]))
+                return 0;
+            ptr += 1;
+        } else if (!isspace(line[ptr])) {
+            return 0;
+        } else {
+            ptr += 1;
+        }
+    }
+
+    if ((f_char >= 0) && (l_char >= 0) && colon)
+        return 1;
+    else
+        return 0;
+}
+
 static int parse_ins(tthread_t *thread, const char *line, char *err) {
     ins_desc_t *d;
 
@@ -560,9 +596,25 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
 
     d = &(thread->ins[thread->n_ins]);
     d->ins = I_INVALID;
+    d->n_arg = 0;
     d->label = NULL;
 
-    if ((strncmp(line, "ldr", 3) == 0) || (strncmp(line, "str", 3) == 0)) {
+    if (is_label_def(line)) {
+        int p = 0, start, end;
+        
+        while (isspace(line[p]) && (line[p] != '\0'))
+            p++;
+        start = p;
+        
+        while (!isspace(line[p]) && (line[p] != ':') && (line[p] != '\0'))
+            p++;
+        end = p - 1;
+
+        d->ins = I_LABEL;
+        d->label = strndup(line + start, (end - start) + 1);
+        
+        return 1;
+    } else if ((strncmp(line, "ldr", 3) == 0) || (strncmp(line, "str", 3) == 0)) {
         int ret;
         int p = 3;
 
@@ -652,7 +704,12 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
         if (ret < 0)
             return ret;
 
-        if (ret < 3) {
+        if (d->ins == I_CMP) {
+            if (ret < 2) {
+                snprintf(err, BUFFER_LEN - 1, "insufficient arguments \"%s\"", line);
+                return -1;
+            }
+        } else if (ret < 3) { 
             snprintf(err, BUFFER_LEN - 1, "insufficient arguments \"%s\"", line);
             return -1;
         }
@@ -662,6 +719,33 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             d->size = 8;
         if (d->arg[2].size == -1)
             d->flags |= I_CONST;
+
+        return 1;
+    } else if (strncmp(line, "bne", 3) == 0) {
+        int p = 3, start, end;
+
+        d->ins = I_BNE;
+        while (isspace(line[p]) && (line[p] != '\0'))
+            p++;
+        start = p;
+        
+        if (isdigit(line[p]) || line[p] == '#') {
+            int ret = parse_ins_args(d, line + p, err); 
+            if (ret < 1) { 
+                snprintf(err, BUFFER_LEN - 1, "insufficient arguments \"%s\"", line);
+                return -1;
+            }
+        } else {
+            while (!isspace(line[p]) && (line[p] != '\0'))
+                p++;
+            end = p - 1;
+            if (end > start) {
+                d->label = strndup(line + start, (end - start) + 1);
+            } else {
+                snprintf(err, BUFFER_LEN - 1, "insufficient arguments \"%s\"", line);
+                return -1;
+            }
+        }
 
         return 1;
     } else if ((line[0] == 'd' || line[0] == 'i') && (line[1] == 'm' || line[1] == 's') && (line[2] == 'b')) {
@@ -847,7 +931,7 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
 }
 
 void free_litmus_t(litmus_t *test) {
-    int i;
+    int i, j;
 
     if (test->lines) {
         free(test->lines);
@@ -876,6 +960,10 @@ void free_litmus_t(litmus_t *test) {
 
     for (i = 0; i < test->n_tthread; ++i) {
         tthread_t *t = &(test->tthread[i]);
+        for (j = 0; j < t->n_ins; ++j) {
+            if (t->ins[j].label)
+                free(t->ins[j].label);
+        }
         free(t->name);
     }
 
@@ -1025,6 +1113,10 @@ static const char *ins_name(ins_t ins) {
         case I_ISB: return "ISB";
         case I_EOR: return "EOR";
         case I_ADD: return "ADD";
+        case I_SUB: return "SUB";
+        case I_CMP: return "CMP";
+        case I_BNE: return "BNE";
+        case I_LABEL: return "LABEL";
         default: return "UNKNOWN";
     }
 }
@@ -1049,6 +1141,10 @@ static void print_ins(ins_desc_t *ins, const char *indent) {
         if (!(ins->flags & (I_BAR_ISH | I_BAR_OSH | I_BAR_NSH | I_BAR_LD | I_BAR_ST))) {
             log_debug_p("SY");
         }
+    } else if (ins->ins == I_LABEL) {
+        log_debug_p(" label=\"%s\"", ins->label);
+    } else if (ins->ins == I_BNE && ins->label) {
+        log_debug_p(" label=\"%s\"", ins->label);
     } else {
         log_debug_p(" size=%d", ins->size);
     }

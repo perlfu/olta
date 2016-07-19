@@ -12,7 +12,9 @@ typedef enum {
     I_EOR,
     I_ADD,
     I_SUB,
-    I_CMP
+    I_CMP,
+    I_LABEL,
+    I_BNE
 } ins_t;
 
 typedef enum _val_t {
