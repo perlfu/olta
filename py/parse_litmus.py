@@ -113,12 +113,18 @@ def ins_parts(ins):
                 res.append(p)
     return res
 
+REG_RE = re.compile(r'([rRwWxX]\d{1,2})')
+def is_reg(p):
+    if REG_RE.match(p):
+        return True
+    else:
+        return False
+
 def arm_registers(ins):
     parts = ins_parts(ins)
-    reg_re = re.compile(r'([rRwWxX]\d{1,2})')
     regs = {}
     for p in parts:
-        if reg_re.match(p):
+        if is_reg(p):
             regs[int(p[1:])] = True
     return regs
 
@@ -221,9 +227,18 @@ def arm_to_v8_ins(ins):
                 parts[0] = parts[0] + ' SY'
 
             # add missing square braces for STR/LDR
-            if (name == 'STR' or name == 'LDR') and (len(parts) == 5):
-                if parts[4][0] != '[':
-                    parts[4] = '[' + parts[4] + ']'
+            if (name == 'STR' or name == 'LDR') and ('[' not in parts):
+                reg_n, reg_i = 0, 0
+
+                for i in range(len(parts)):
+                    if is_reg(parts[i]):
+                        reg_n, reg_i = reg_n + 1, i
+                    if reg_n >= 2:
+                        break
+                
+                if reg_n >= 2:
+                    parts[i:(i+1)] = ['[', parts[i]]
+                    parts.append(']')
         
         res.append(''.join(parts))
     return res
