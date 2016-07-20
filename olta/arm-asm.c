@@ -978,6 +978,7 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
             return build_arith(ctx, desc);
         case I_AND:
             return build_logic(ctx, desc);
+        case I_BEQ:
         case I_BNE:
             return build_branch_placeholder(ctx, desc);
         case I_LABEL:
