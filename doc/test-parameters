@@ -43,5 +43,18 @@ TN-buffer-size      - size of the private buffer for this thread [67108864]
 TN-register-shift   - shift register assignment by N registers [0]
 TN-sync-stall       - number of add1 stall instruction to add in sync loop
 TN_MLN-flush        - flush dcache of this location between tests [0]
-TN-MLN-preload      - preload this location between tests (overrides flush) [0]
+TN-MLN-preload      - preload this location between tests [0]
+TN-MLN-prefetch-ldr-type      
+                    - request the processor prefetch this location for loads 
+                      (1=keep, 2=stream) [0]
+TN-MLN-prefetch-ldr-level 
+                    - cache level to prefetch loads to (1-3) [0] 
+TN-MLN-prefetch-str-type      
+                    - request the processor prefetch this location for stores 
+                      (1=keep, 2=stream) [0]
+TN-MLN-prefetch-str-level 
+                    - cache level to prefetch stores to (1-3) [0] 
+
+Note that it is valid to flush, preload and prefetch the same location.
+When combinations of these are specified they happen in the order preload, flush, prefetch.
 
