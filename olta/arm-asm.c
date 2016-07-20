@@ -436,7 +436,7 @@ typedef struct _thread_env_t {
 
 static reg_t assign_register(uint32_t *map, int offset) {
     int i;
-    for (i = 0; i < 28; ++i) {
+    for (i = 0; i < 30; ++i) {
         int idx = (i + offset) % 32;
         int bit;
         if (idx == 31)
@@ -1258,9 +1258,13 @@ void *boot_thread(void *t) {
     asm volatile ("\n\t"
         "sub sp, sp, #16\n\t"
         "stp x26, x27, [sp]\n\t"
+        "sub sp, sp, #16\n\t"
+        "stp x28, x29, [sp]\n\t"
         "mov x0, %[brptr]\n\t"
         "mov x1, %[cptr]\n\t"
         "blr x1\n\t"
+        "ldp x28, x29, [sp]\n\t"
+        "add sp, sp, #16\n\t"
         "ldp x26, x27, [sp]\n\t"
         "add sp, sp, #16\n\t"
         : 
