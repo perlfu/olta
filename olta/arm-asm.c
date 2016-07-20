@@ -1027,6 +1027,73 @@ static void build_test(asm_ctx_t *ctx) {
     }
 }
 
+static const char *register_name(reg_t r) {
+    switch (r) {
+        case X0: return "X0"; 
+        case X1: return "X1";
+        case X2: return "X2";
+        case X3: return "X3";
+        case X4: return "X4";
+        case X5: return "X5";
+        case X6: return "X6";
+        case X7: return "X7";
+        case X8: return "X8";
+        case X9: return "X9";
+        case X10: return "X10";
+        case X11: return "X11";
+        case X12: return "X12";
+        case X13: return "X13";
+        case X14: return "X14";
+        case X15: return "X15";
+        case X16: return "X16";
+        case X17: return "X17";
+        case X18: return "X18";
+        case X19: return "X19";
+        case X20: return "X20";
+        case X21: return "X21";
+        case X22: return "X22";
+        case X23: return "X23";
+        case X24: return "X24";
+        case X25: return "X25";
+        case X26: return "X26";
+        case X27: return "X27";
+        case X28: return "X28";
+        case X29: return "X29";
+        case X30: return "X30";
+        case XZR: return "XZR";
+        default: return "XINVALID";
+    }
+}
+
+static void report_register(const char *thread, const char *name, reg_t r) {
+    log_debug("asm reg %s %s = %s", thread, name, register_name(r)); 
+}
+
+static void report_registers(asm_ctx_t *ctx) {
+    const char *tn = ctx->thread->name;
+    int i;
+    report_register(tn, "r_bootrec", ctx->r_bootrec);
+    report_register(tn, "r_tmp0", ctx->r_tmp0);
+    report_register(tn, "r_tmp1", ctx->r_tmp1);
+    report_register(tn, "r_tmp2", ctx->r_tmp2);
+    report_register(tn, "r_stall", ctx->r_stall);
+    report_register(tn, "r_sync_a", ctx->r_sync_a);
+    report_register(tn, "r_sync_b", ctx->r_sync_b);
+    report_register(tn, "r_threads", ctx->r_threads);
+    report_register(tn, "r_iterations", ctx->r_iterations);
+    report_register(tn, "r_idx", ctx->r_idx);
+    report_register(tn, "r_buf_unq_idx", ctx->r_buf_unq_idx);
+    report_register(tn, "r_buf_shr_idx", ctx->r_buf_shr_idx);
+    report_register(tn, "r_ts_start", ctx->r_ts_start);
+    report_register(tn, "r_ts_end", ctx->r_ts_end);
+    for (i = 0; i < ctx->thread->n_reg; ++i) {
+        char name[32];
+        snprintf(name, sizeof(name), "r_reg[%d]", i);
+        name[sizeof(name) - 1] = '\0';
+        report_register(tn, name, ctx->r_reg[i]);
+    }
+}
+
 static void report_code(const char *name, uint32_t *ins, int len) {
     int i;
     log_debug("/* %s = %d instructions */", name, len);
@@ -1117,6 +1184,10 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
             ctx.r_reg[i] = assign_register(&regmap, register_shift);
         else
             ctx.r_reg[i] = XINVALID;
+    }
+
+    if (config_lookup_var_int(test, "debug-asm-regs", 0) == 1) {
+        report_registers(&ctx);
     }
 
     // assemble init: boot record unpack
