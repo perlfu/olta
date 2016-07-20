@@ -729,6 +729,36 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             d->flags |= I_CONST;
 
         return 1;
+    } else if (strncmp(line, "and", 3) == 0) {
+        int p = 3;
+        int ret = parse_ins_args(d, line + p, err);
+        
+        if (line[0] == 'a')
+            d->ins = I_AND;
+        else
+            return -1;
+        
+        if (ret < 0)
+            return ret;
+
+        if (ret < 3) { 
+            snprintf(err, BUFFER_LEN - 1, "insufficient arguments \"%s\"", line);
+            return -1;
+        }   
+        
+        d->size = d->arg[0].size;
+        if (d->size == 0)
+            d->size = 8;
+        if (d->arg[2].size == -1) {
+            d->flags |= I_CONST;
+            
+            if (ret > 3) { 
+                snprintf(err, BUFFER_LEN - 1, "too many arguments \"%s\"", line);
+                return -1;
+            }   
+        }
+
+        return 1;
     } else if (line[0] == 'b' && (line[1] == 'e' || line[1] == 'n')) {
         int p = 3, start, end;
 
@@ -1146,6 +1176,7 @@ static const char *ins_name(ins_t ins) {
         case I_CMP: return "CMP";
         case I_BNE: return "BNE";
         case I_BEQ: return "BEQ";
+        case I_AND: return "AND";
         case I_LABEL: return "LABEL";
         default: return "UNKNOWN";
     }

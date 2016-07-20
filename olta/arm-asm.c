@@ -200,24 +200,39 @@ static void _beq(asm_ctx_t *ctx, int dist) {
     _b_cond(ctx, CC_EQ, dist);
 }
 
-static void _orr(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+__attribute__ ((unused))
+static void _logic_immediate(asm_ctx_t *ctx, int size, uint32_t base4, uint32_t base8, reg_t dst_r, reg_t src_r) {
+    uint32_t N = 0, imms = 0, immr = 0;
+    
     assert(size == 4 || size == 8);
 
     if (size == 4) {
-        ctx->buf[(ctx->idx)++] = 0x2a000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
-    } else if (size == 8) {
-        ctx->buf[(ctx->idx)++] = 0xaa000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+        ctx->buf[(ctx->idx)++] = base4 | (dst_r) | (src_r << 5) | ((imms & 0x3f) << 10) | ((immr & 0x3f) << 16) | (N << 22);
+    } else {
+        ctx->buf[(ctx->idx)++] = base8 | (dst_r) | (src_r << 5) | ((imms & 0x3f) << 10) | ((immr & 0x3f) << 16) | (N << 22);
     }
 }
 
-static void _eor(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+static void _logic_shift_reg(asm_ctx_t *ctx, int size, uint32_t base4, uint32_t base8, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
     assert(size == 4 || size == 8);
 
     if (size == 4) {
-        ctx->buf[(ctx->idx)++] = 0x4a000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+        ctx->buf[(ctx->idx)++] = base4 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
     } else if (size == 8) {
-        ctx->buf[(ctx->idx)++] = 0xca000000 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
+        ctx->buf[(ctx->idx)++] = base8 | (dst_r) | (reg0 << 5) | ((shift_amount & 0x3f) << 10) | (reg1 << 16) | ((invert & 0x1) << 21) | (shift << 22);
     }
+}
+
+static void _and(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    _logic_shift_reg(ctx, size, 0x0a000000, 0x8a000000, dst_r, reg0, reg1, shift, shift_amount, invert);
+}
+
+static void _orr(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    _logic_shift_reg(ctx, size, 0x2a000000, 0xaa000000, dst_r, reg0, reg1, shift, shift_amount, invert);
+}
+
+static void _eor(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
+    _logic_shift_reg(ctx, size, 0x4a000000, 0xca000000, dst_r, reg0, reg1, shift, shift_amount, invert);
 }
 
 static void _arithmetic_immediate(asm_ctx_t *ctx, int size, uint32_t base4, uint32_t base8, reg_t dst_r, reg_t src_r, int value, int shift_amount) {
@@ -317,7 +332,7 @@ static void _mov(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
 }
 
 __attribute__ ((unused))
-static void _and(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r, reg_t mask_r) {
+static void __and(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r, reg_t mask_r) {
     ctx->buf[(ctx->idx)++] = 0x8a000000 | (dst_r) | (src_r << 5) | (mask_r << 16);
 }
 
@@ -591,7 +606,7 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
                     _add_const(ctx, idx_r, stride);
                 else
                     _sub_const(ctx, idx_r, stride);
-                _and(ctx, idx_r, idx_r, limit_r);
+                __and(ctx, idx_r, idx_r, limit_r);
             } 
         }
     } else if ((ao & AO_INC) || (ao & AO_DEC)) {
@@ -611,7 +626,7 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
         _mov_const(ctx, limit_r, 1);
         _lsl(ctx, limit_r, limit_r, buf_size);
         _sub_const(ctx, limit_r, 1);
-        _and(ctx, idx_r, idx_r, limit_r);
+        __and(ctx, idx_r, idx_r, limit_r);
     } else if (ao & AO_SET) {
         unsigned int ptr = ao_p->n_arg == 0 ? 0 : rep;
         
@@ -789,6 +804,33 @@ static int build_arith(asm_ctx_t *ctx, ins_desc_t *desc) {
     return -1;
 }
 
+static int build_logic(asm_ctx_t *ctx, ins_desc_t *desc) {
+    if (desc->n_arg >= 3) {
+        ins_arg_t *dst_a = &(desc->arg[0]), *src0_a = &(desc->arg[1]), *src1_a = &(desc->arg[2]);
+        
+        if (desc->flags & I_CONST) {
+            // FIXME: implement bitmask encoding
+            _mov_const(ctx, ctx->r_tmp0, src1_a->n); 
+
+            switch (desc->ins) {
+                case I_AND: _and(ctx, dst_a->size, dst_a->n, src0_a->n, ctx->r_tmp0, SHIFT_LSL, 0, 0); break;
+                default: assert(0);
+            }
+        } else {
+            // FIXME: add shift support
+            if (desc->n_arg == 4)
+                return -1;
+            
+            switch (desc->ins) {
+                case I_AND: _and(ctx, dst_a->size, dst_a->n, src0_a->n, src1_a->n, SHIFT_LSL, 0, 0); break;
+                default: assert(0);
+            }
+        }
+        return 0;
+    }
+    return -1;
+}
+
 static int build_eor(asm_ctx_t *ctx, ins_desc_t *desc) {
     if (desc->n_arg >= 3) {
         if (desc->flags & I_CONST) {
@@ -934,6 +976,8 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
         case I_SUB:
         case I_CMP:
             return build_arith(ctx, desc);
+        case I_AND:
+            return build_logic(ctx, desc);
         case I_BNE:
             return build_branch_placeholder(ctx, desc);
         case I_LABEL:

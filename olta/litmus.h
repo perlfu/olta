@@ -15,7 +15,8 @@ typedef enum {
     I_CMP,
     I_LABEL,
     I_BNE,
-    I_BEQ
+    I_BEQ,
+    I_AND
 } ins_t;
 
 typedef enum _val_t {
