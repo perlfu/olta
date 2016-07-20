@@ -911,43 +911,78 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
     if (eq >= 0) {
         /* variable assignment */
         char reg[BUFFER_LEN], v_name[BUFFER_LEN];
-        int colon, thread_n, reg_len, ret;
+        int colon, reg_len;
         
         eqsplit2(token, reg, v_name);
+        reg_len = strlen(reg);
         
-        colon = find_char(reg, ':');
-        if ((colon < 0) || (strlen(reg) == 0) || (strlen(v_name) == 0)) {
+        if ((reg_len == 0) || (strlen(v_name) == 0)) {
             snprintf(err, BUFFER_LEN - 1, "unknown variable format \"%s\"", token);
             return -1;
         }
-        reg_len = strlen(reg);
-        reg[colon] = '\0';
-        thread_n = atoi(reg);
-        memmove(reg, reg + colon + 1, reg_len - colon);
-
-        if (thread_n < 0 || thread_n >= test->n_tthread) {
-            snprintf(err, BUFFER_LEN - 1, "unknown thread %d", thread_n);
-            return -1;
-        }
-
-        if (isdigit(v_name[0])) {
-            ret = tag_reg_val(&(test->tthread[thread_n]), reg, strtoull(v_name, NULL, 0));
-        } else {
+        
+        colon = find_char(reg, ':');
+        
+        if (colon < 0) {
+            // assign mem location default value
             int ml_n;
+
+            if (reg[0] == '[' && reg_len >= 3) {
+                // remove [ ]
+                memmove(reg, reg + 1, reg_len - 2);
+                reg_len -= 2;
+                reg[reg_len] = '\0';
+            }
+
             for (ml_n = 0; ml_n < test->n_mem_loc; ++ml_n) {
-                if (strcmp(v_name, test->mem_loc[ml_n].name) == 0)
+                if (strcmp(reg, test->mem_loc[ml_n].name) == 0)
                     break;
             }
             if (ml_n >= test->n_mem_loc) {
-                snprintf(err, BUFFER_LEN - 1, "unknown variable \"%s\"", v_name);
+                snprintf(err, BUFFER_LEN - 1, "unknown memory location \"%s\" (1)", reg);
                 return -1;
             }
-            ret = tag_reg_mem_loc(&(test->tthread[thread_n]), reg, ml_n);
-        }
 
-        if (ret < 0) {
-            snprintf(err, BUFFER_LEN - 1, "register \"%s\" not valid for thread %d", reg, thread_n);
-            return -1;
+            if (isdigit(v_name[0])) {
+                test->mem_loc[ml_n].v = strtoull(v_name, NULL, 0);
+            } else {
+                snprintf(err, BUFFER_LEN - 1, "memory location '%s' can only be a numeric value (found \"%s\")", reg, v_name);
+                return -1;
+            }
+        } else {
+            // assign thread register value
+            int thread_n, ret;
+            
+            reg[colon] = '\0';
+            thread_n = atoi(reg);
+            memmove(reg, reg + colon + 1, reg_len - colon);
+            reg_len -= colon + 1;
+            reg[reg_len] = '\0';
+
+            if (thread_n < 0 || thread_n >= test->n_tthread) {
+                snprintf(err, BUFFER_LEN - 1, "unknown thread %d", thread_n);
+                return -1;
+            }
+
+            if (isdigit(v_name[0])) {
+                ret = tag_reg_val(&(test->tthread[thread_n]), reg, strtoull(v_name, NULL, 0));
+            } else {
+                int ml_n;
+                for (ml_n = 0; ml_n < test->n_mem_loc; ++ml_n) {
+                    if (strcmp(v_name, test->mem_loc[ml_n].name) == 0)
+                        break;
+                }
+                if (ml_n >= test->n_mem_loc) {
+                    snprintf(err, BUFFER_LEN - 1, "unknown memory location \"%s\" (2)", v_name);
+                    return -1;
+                }
+                ret = tag_reg_mem_loc(&(test->tthread[thread_n]), reg, ml_n);
+            }
+
+            if (ret < 0) {
+                snprintf(err, BUFFER_LEN - 1, "register \"%s\" not valid for thread %d", reg, thread_n);
+                return -1;
+            }
         }
 
         return 0;
@@ -973,6 +1008,7 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
         ml->name = strdup(v_name);
         ml->size = size;
         ml->stride = size;
+        ml->v = 0;
         test->n_mem_loc += 1;
         return 0;
     }
@@ -1269,7 +1305,8 @@ void print_test(litmus_t *lt) {
     log_debug("test = \"%s\"", lt->name);
     log_debug("# memory locations = %d", lt->n_mem_loc);
     for (i = 0; i < lt->n_mem_loc; ++i) {
-        log_debug("\t%d: \"%s\" size=%d stride=%d", i, lt->mem_loc[i].name, lt->mem_loc[i].size, lt->mem_loc[i].stride);
+        mem_loc_t *ml = &(lt->mem_loc[i]);
+        log_debug("\t%d: \"%s\" size=%d stride=%d v=%llu", i, ml->name, ml->size, ml->stride, (long long unsigned)ml->v);
     }
 
     log_debug("# test threads = %d", lt->n_tthread);

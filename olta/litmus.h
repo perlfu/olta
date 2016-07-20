@@ -87,6 +87,7 @@ typedef struct _mem_loc_t {
     char *name;
     int size;
     int stride;
+    uint64_t v;
 } mem_loc_t;
 
 typedef struct _cfg_idx_t {

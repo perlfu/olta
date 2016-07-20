@@ -111,6 +111,36 @@ static int prepare_output_format(litmus_t *lt, char **outfmt) {
     return n_out;
 }
 
+static void fill_memory(uint64_t *mem, int size, uint64_t v, size_t bytes) {
+    unsigned int cnt = bytes;
+
+    switch (size) {
+        case 1:
+            memset(mem, v & 0xff, bytes);
+            break;
+        case 2: {
+                uint16_t *p = (uint16_t *)mem;
+                cnt /= 2;
+                while (cnt--) *(p++) = (v & 0xff);
+            }
+            break;
+        case 4: {
+                uint32_t *p = (uint32_t *)mem;
+                cnt /= 4;
+                while (cnt--) *(p++) = v;
+            }
+            break;
+        case 8: {
+                uint64_t *p = (uint64_t *)mem;
+                cnt /= 8;
+                while (cnt--) *(p++) = v;
+            }
+            break;
+        default:
+            assert(0);
+    }
+}
+
 static void run_test(litmus_t *lt, result_set_t *rs) {
     const int n_threads = lt->n_tthread;
     const int n_iterations = config_lookup_var_int(lt, "iterations", 100000);
@@ -166,7 +196,11 @@ static void run_test(litmus_t *lt, result_set_t *rs) {
         mem_loc[i] = (uint64_t *) malloc(bytes);
         if (mem_loc[i] != NULL) {
             memset(mem_loc[i], 0xff, bytes);
-            memset(mem_loc[i], 0, bytes);
+            if (ml->v == 0) {
+                memset(mem_loc[i], 0, bytes);
+            } else {
+                fill_memory(mem_loc[i], ml->size, ml->v, bytes);
+            }
         } else {
             log_error("memory location allocation failed (%d bytes)", bytes);
             problems++;
