@@ -196,6 +196,10 @@ static void _bne(asm_ctx_t *ctx, int dist) {
     _b_cond(ctx, CC_NE, dist);
 }
 
+static void _beq(asm_ctx_t *ctx, int dist) {
+    _b_cond(ctx, CC_EQ, dist);
+}
+
 static void _orr(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t reg0, reg_t reg1, shift_t shift, int shift_amount, int invert) {
     assert(size == 4 || size == 8);
 
@@ -884,6 +888,9 @@ static int build_branch(asm_ctx_t *ctx, asm_branch_t *br) {
     switch (br->ins->ins) {
         case I_BNE: 
             _bne(ctx, branch_imm);
+            break;
+        case I_BEQ:
+            _beq(ctx, branch_imm);
             break;
         default:
             ok = 0;

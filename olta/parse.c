@@ -729,10 +729,16 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
             d->flags |= I_CONST;
 
         return 1;
-    } else if (strncmp(line, "bne", 3) == 0) {
+    } else if (line[0] == 'b' && (line[1] == 'e' || line[1] == 'n')) {
         int p = 3, start, end;
 
-        d->ins = I_BNE;
+        if (strncmp(line, "beq", 3) == 0 || strncmp(line, "b.eq", 4) == 0)
+            d->ins = I_BEQ;
+        else if (strncmp(line, "bne", 3) == 0 || strncmp(line, "b.ne", 4) == 0)
+            d->ins = I_BNE;
+        else
+            return -1;
+
         while (isspace(line[p]) && (line[p] != '\0'))
             p++;
         start = p;
@@ -1139,6 +1145,7 @@ static const char *ins_name(ins_t ins) {
         case I_SUB: return "SUB";
         case I_CMP: return "CMP";
         case I_BNE: return "BNE";
+        case I_BEQ: return "BEQ";
         case I_LABEL: return "LABEL";
         default: return "UNKNOWN";
     }
