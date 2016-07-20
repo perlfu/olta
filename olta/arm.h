@@ -39,7 +39,8 @@ typedef enum _reg_t {
     X28 = 28,
     X29 = 29,
     X30 = 30,
-    XZR = 31
+    XZR = 31,
+    XINVALID = 0xffffffff
 } reg_t;
 
 typedef enum _shift_t {

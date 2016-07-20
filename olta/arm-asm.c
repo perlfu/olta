@@ -1039,6 +1039,15 @@ static void report_code(const char *name, uint32_t *ins, int len) {
     log_debug("}");
 }
 
+static int treg_needs_register(treg_t *r) {
+    if (r->t == T_PTR)
+        return 1;
+    else if ((r->v >> 16) != 0)
+        return 1;
+    else
+        return 0;
+}
+
 void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx) {
     const int align_loop = config_thread_var_int(test, th, "align-loop", 0);
     const int align_test = config_thread_var_int(test, th, "align-test", 0);
@@ -1103,8 +1112,12 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
         ctx.r_ts_start = assign_register(&regmap, register_shift);
         ctx.r_ts_end = assign_register(&regmap, register_shift);
     }
-    for (i = 0; i < th->n_reg; ++i)
-        ctx.r_reg[i] = assign_register(&regmap, register_shift);
+    for (i = 0; i < th->n_reg; ++i) {
+        if (treg_needs_register(&(th->reg[i])))
+            ctx.r_reg[i] = assign_register(&regmap, register_shift);
+        else
+            ctx.r_reg[i] = XINVALID;
+    }
 
     // assemble init: boot record unpack
     _mov(&ctx, ctx.r_bootrec, X0); // X0 contains bootrec PTR
@@ -1112,8 +1125,10 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
     _ldr_ind_idx(&ctx, ctx.r_sync_b, ctx.r_bootrec, BOOTREC_SYNC_B);
     _ldr_ind_idx(&ctx, ctx.r_threads, ctx.r_bootrec, BOOTREC_THREADS);
     _ldr_ind_idx(&ctx, ctx.r_iterations, ctx.r_bootrec, BOOTREC_ITERATIONS);
-    for (i = 0; i < th->n_reg; ++i)
-        _ldr_ind_idx(&ctx, ctx.r_reg[i], ctx.r_bootrec, (BOOTREC_REG + i));
+    for (i = 0; i < th->n_reg; ++i) {
+        if (treg_needs_register(&(th->reg[i])))
+            _ldr_ind_idx(&ctx, ctx.r_reg[i], ctx.r_bootrec, (BOOTREC_REG + i));
+    }
 
     // set iteration
     _mov_const(&ctx, ctx.r_idx, 0);
@@ -1126,7 +1141,12 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
     
     // prepare registers
     for (i = 0; i < th->n_reg; ++i) {
-        _mov(&ctx, th->reg[i].n, ctx.r_reg[i]);
+        treg_t *r = &(th->reg[i]);
+        if (treg_needs_register(r)) {
+            _mov(&ctx, r->n, ctx.r_reg[i]);
+        } else {
+            _mov_const(&ctx, r->n, r->v);
+        }
     }
     
     // align loop
@@ -1191,13 +1211,19 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
             mem_loc_t *ml = &(test->mem_loc[r->v]);
             _add_const(&ctx, ctx.r_reg[i], ml->stride); 
         }
+
         // prepare register
-        _mov(&ctx, th->reg[i].n, ctx.r_reg[i]);
+        if (treg_needs_register(r)) {
+            _mov(&ctx, r->n, ctx.r_reg[i]);
+        } else {
+            _mov_const(&ctx, r->n, r->v);
+        }
     }
     
     // clean temporaries
     _mov_const(&ctx, ctx.r_tmp0, 0);
     _mov_const(&ctx, ctx.r_tmp1, 0);
+    _mov_const(&ctx, ctx.r_tmp2, 0);
 
     // loop
     _add_const(&ctx, ctx.r_idx, 1);
