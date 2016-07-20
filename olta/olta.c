@@ -141,6 +141,18 @@ static void fill_memory(uint64_t *mem, int size, uint64_t v, size_t bytes) {
     }
 }
 
+static int prefetch_flags(int type, int level) {
+    int flags = 0;
+    if (type == 1)
+        flags |= R_PREFETCH_KEEP;
+    else if (type == 2)
+        flags |= R_PREFETCH_STRM;
+    if (level <= 0)
+        level = 3;
+    flags |= (level & 0x3) << 2;
+    return flags;
+}
+
 static void run_test(litmus_t *lt, result_set_t *rs) {
     const int n_threads = lt->n_tthread;
     const int n_iterations = config_lookup_var_int(lt, "iterations", 100000);
@@ -242,13 +254,21 @@ static void run_test(litmus_t *lt, result_set_t *rs) {
                 mem_loc_t *ml = &(lt->mem_loc[mem_loc_n]);
                 const int preload = config_mem_loc_var_int(lt, tt, ml, "preload", 0);
                 const int flush = config_mem_loc_var_int(lt, tt, ml, "flush", 0);
+                const int prefetch_ldr_type = config_mem_loc_var_int(lt, tt, ml, "prefetch-ldr-type", 0);
+                const int prefetch_ldr_level = config_mem_loc_var_int(lt, tt, ml, "prefetch-ldr-level", 0);
+                const int prefetch_str_type = config_mem_loc_var_int(lt, tt, ml, "prefetch-str-type", 0);
+                const int prefetch_str_level = config_mem_loc_var_int(lt, tt, ml, "prefetch-str-level", 0);
                 
                 // update flags
                 if (preload == 1)
                     tt->reg[j].flags |= R_PRELOAD;
-                else if (flush == 1)
+                if (flush == 1)
                     tt->reg[j].flags |= R_FLUSH;
-                
+                if (prefetch_ldr_type)
+                    tt->reg[j].flags |= prefetch_flags(prefetch_ldr_type, prefetch_ldr_level) << R_PREFETCH_LDR_SHIFT;
+                if (prefetch_str_type)
+                    tt->reg[j].flags |= prefetch_flags(prefetch_str_type, prefetch_str_level) << R_PREFETCH_STR_SHIFT;
+
                 // set memory location pointer
                 t->reg[j] = (uint64_t) mem_loc[mem_loc_n];
             } else {

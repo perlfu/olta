@@ -69,6 +69,27 @@ typedef enum _cond_t {
     CC_NV = 0xF
 } cond_t;
 
+typedef enum _prfop_t {
+    PLDL1KEEP = 0x00,
+    PLDL1STRM = 0x01,
+    PLDL2KEEP = 0x02,
+    PLDL2STRM = 0x03,
+    PLDL3KEEP = 0x04,
+    PLDL3STRM = 0x05,
+    PLIL1KEEP = 0x08,
+    PLIL1STRM = 0x09,
+    PLIL2KEEP = 0x0a,
+    PLIL2STRM = 0x0b,
+    PLIL3KEEP = 0x0c,
+    PLIL3STRM = 0x0d,
+    PSTL1KEEP = 0x10,
+    PSTL1STRM = 0x11,
+    PSTL2KEEP = 0x12,
+    PSTL2STRM = 0x13,
+    PSTL3KEEP = 0x14,
+    PSTL3STRM = 0x15
+} prfop_t;
+
 typedef enum _bar_type_t {
     BAR_DSB = 0x0,
     BAR_DMB = 0x1,

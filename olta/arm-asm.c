@@ -171,6 +171,46 @@ static void _flush_dcache(asm_ctx_t *ctx, reg_t addr_r) {
     ctx->buf[(ctx->idx)++] = 0xd50b7e20 | addr_r;
 }
 
+static int encode_prfop(int r_flags) {
+    if (r_flags & R_PREFETCH_LDR_MASK) {
+        int level = r_flags >> (R_PREFETCH_LDR_SHIFT + 2);
+        if (r_flags & R_PREFETCH_LDR_KEEP) {
+            switch (level) {
+                case 1: return PLDL1KEEP;
+                case 2: return PLDL2KEEP;
+                case 3: return PLDL3KEEP;
+            }
+        } else if (r_flags & R_PREFETCH_LDR_STRM) {
+            switch (level) {
+                case 1: return PLDL1STRM;
+                case 2: return PLDL2STRM;
+                case 3: return PLDL3STRM;
+            }
+        }
+    } else if (r_flags & R_PREFETCH_STR_MASK) {
+        int level = r_flags >> (R_PREFETCH_STR_SHIFT + 2);
+        if (r_flags & R_PREFETCH_STR_KEEP) {
+            switch (level) {
+                case 1: return PSTL1KEEP;
+                case 2: return PSTL2KEEP;
+                case 3: return PSTL3KEEP;
+            }
+        } else if (r_flags & R_PREFETCH_STR_STRM) {
+            switch (level) {
+                case 1: return PSTL1STRM;
+                case 2: return PSTL2STRM;
+                case 3: return PSTL3STRM;
+            }
+        }
+    }
+    assert(0);
+    return 0;
+}
+
+static void _prfum(asm_ctx_t *ctx, prfop_t op, reg_t base_r, int offset) {
+    ctx->buf[(ctx->idx)++] = 0xf8800000 | op | (base_r << 5) | ((offset & 0x1ff) << 12);
+}
+
 static void _cbz(asm_ctx_t *ctx, reg_t reg, int dist) {
     if (dist < 0) {
         dist = 0x7ffff + (dist + 1);
@@ -1234,10 +1274,17 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
     for (i = 0; i < th->n_reg; ++i) {
         treg_t *r = &(th->reg[i]);
         if (r->t == T_PTR) {
+            if (r->flags & R_PREFETCH_LDR_MASK) {
+                _prfum(&ctx, encode_prfop(r->flags & R_PREFETCH_LDR_MASK), r->n, 0); 
+            }
+            if (r->flags & R_PREFETCH_STR_MASK) {
+                _prfum(&ctx, encode_prfop(r->flags & R_PREFETCH_STR_MASK), r->n, 0); 
+            }
             if (r->flags & R_PRELOAD) {
                 _ldr_ind(&ctx, ctx.r_tmp0, r->n);
                 _dsb_ish(&ctx);
-            } else if (r->flags & R_FLUSH) {
+            }
+            if (r->flags & R_FLUSH) {
                 _flush_dcache(&ctx, r->n);
                 _dsb_ish(&ctx);
             }
