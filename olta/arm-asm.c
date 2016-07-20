@@ -1178,7 +1178,11 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
     if (record_timing) {
         ctx.r_ts_start = assign_register(&regmap, register_shift);
         ctx.r_ts_end = assign_register(&regmap, register_shift);
+    } else {
+        ctx.r_ts_start = XINVALID;
+        ctx.r_ts_end = XINVALID;
     }
+
     for (i = 0; i < th->n_reg; ++i) {
         if (treg_needs_register(&(th->reg[i])))
             ctx.r_reg[i] = assign_register(&regmap, register_shift);
