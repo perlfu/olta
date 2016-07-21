@@ -5,6 +5,7 @@ This file describes the parameters which can be set in the parameter block of a 
 
 ## Global Parameters
 
+label           - label to print at beginning of test [""]
 runs            - number of test runs [1]
 iterations      - number of iterations per test run [100000]
 log-debug       - configure level of debug output [1]

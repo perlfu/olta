@@ -168,8 +168,6 @@ static void run_test(litmus_t *lt, result_set_t *rs) {
     int i, n;
     int problems = 0;
     
-    //log_sep("allocate and assemble");
-   
     // create shared test context
     ctx->sync_a = sync_a;
     ctx->sync_b = sync_b;
@@ -367,6 +365,7 @@ out:
 
 static void do_test(litmus_t *lt) {
     if (lt) {
+        const char *label = config_lookup_var_str(lt, "label", NULL);
         const int runs = config_lookup_var_int(lt, "runs", 1);
         char *outfmt[MAX_MEM_LOC + MAX_THREAD_REG * MAX_TTHREAD];
         result_set_t rs;
@@ -374,6 +373,11 @@ static void do_test(litmus_t *lt) {
         int i;
 
         log_configure_for_test(lt);
+    
+        if (label)
+            log_sep("start %s", label);
+        else
+            log_sep("start");
 
         print_test_file(lt);
         print_test(lt);
@@ -392,8 +396,12 @@ static void do_test(litmus_t *lt) {
             free(outfmt[i]);
         }
         
+        if (label)
+            log_sep("end %s", label);
+        else
+            log_sep("end");
+        
         free_litmus_t(lt);
-        log_sep("end");
     }
 }
 
