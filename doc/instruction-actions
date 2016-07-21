@@ -48,14 +48,22 @@ unq-stp,N,T,L       - prefetch unq buffer for load N times
 unq-inc,I           - add S to the unq buffer pointer [I=8]
 unq-dec,I           - subtract S from unq buffer pointer [I=8]
 unq-set,P           - unq buffer pointer is set to P [P=0]
+unq-fsh,N,T         - flush dcache at unq buffer pointer N times [N=1,T=1]
+                      T behaves as TN-MLN-flush
+unq-fsh-inc,N,T,I   - as unq-fsh followed by unq-inc [I=8]
+unq-fsh-dec,N,T,I   - as unq-fsh followed by unq-dec [I=8]
 unq-str-inc,N,S,I   - as unq-str followed by unq-inc [I=S]
 unq-str-dec,N,S,I   - as unq-str followed by unq-dec [I=S]
 unq-sts-inc,N,S,I   - as unq-sts followed by unq-inc [I=S]
 unq-sts-dec,N,S,I   - as unq-sts followed by unq-dec [I=S]
+unq-stp-inc,N,T,L   - as unq-stp followed by unq-inc [I=8]
+unq-stp-dec,N,T,L   - as unq-stp followed by unq-dec [I=8]
 unq-ldr-inc,N,S,I   - as unq-ldr followed by unq-inc [I=S]
 unq-ldr-dec,N,S,I   - as unq-ldr followed by unq-dec [I=S]
 unq-lds-inc,N,S,I   - as unq-lds followed by unq-inc [I=S]
 unq-lds-dec,N,S,I   - as unq-lds followed by unq-dec [I=S]
+unq-ldp-inc,N,T,L   - as unq-ldp followed by unq-inc [I=8]
+unq-ldp-dec,N,T,L   - as unq-ldp followed by unq-dec [I=8]
 
 An equivalent action is available for the shared buffer (shr) by replacing unq with shr.
 

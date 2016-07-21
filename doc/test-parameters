@@ -42,7 +42,15 @@ TN-buffer-size      - size of the private buffer for this thread [67108864]
                       must be a power of two
 TN-register-shift   - shift register assignment by N registers [0]
 TN-sync-stall       - number of add1 stall instruction to add in sync loop
-TN_MLN-flush        - flush dcache of this location between tests [0]
+TN-MLN-flush        - flush dcache of this location between tests [0]
+                      1 = clean, invalidate and wait
+                      2 = invalidate and wait
+                      3 = clean and wait
+                      4 = clean (inner most) and wait
+                      5 = clean, invalidate
+                      6 = invalidate
+                      7 = clean
+                      8 = clean (inner most)
 TN-MLN-preload      - preload this location between tests [0]
 TN-MLN-prefetch-ldr-type      
                     - request the processor prefetch this location for loads 

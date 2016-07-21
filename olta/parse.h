@@ -40,7 +40,8 @@ typedef enum _ao_t {
     AO_INC              = 0x04000,
     AO_DEC              = 0x08000,
     AO_SET              = 0x00400,
-    AO_PREFETCH         = 0x10000
+    AO_PREFETCH         = 0x10000,
+    AO_FLUSH            = 0x20000
 } ao_t;
 
 typedef struct _aopt_t aopt_t;
@@ -54,6 +55,7 @@ struct _aopt_t {
     int n_arg;
 };
 
+int interpret_flush_type(int n);
 aopt_t *parse_ancillary(const char *s);
 void release_ancillary(aopt_t *ao);
 

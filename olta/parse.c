@@ -1348,6 +1348,7 @@ static ao_t parse_ancillary_opt(const char *s) {
         res |= (strncmp(s + 4, "inc", 3) == 0 ? AO_INC : 0);
         res |= (strncmp(s + 4, "dec", 3) == 0 ? AO_DEC : 0);
         res |= (strncmp(s + 4, "set", 3) == 0 ? AO_SET : 0);
+        res |= (strncmp(s + 4, "fsh", 3) == 0 ? AO_FLUSH : 0);
         if (strlen(s) == 11) {
             res |= (strncmp(s + 4, "inc", 3) == 0 ? AO_INC : 0);
             res |= (strncmp(s + 4, "dec", 3) == 0 ? AO_DEC : 0);
@@ -1368,6 +1369,22 @@ static int n_args_for_ancillary(const ao_t op) {
         case AO_ISB:            return 1;
         case AO_BUF_OP:         return 3;
         default:                return 0;
+    }
+}
+
+int interpret_flush_type(int n) {
+    switch (n) {
+        case 0: return 0;
+        case 1: return R_FLUSH_DSB | R_FLUSH_INV | R_FLUSH_CLEAN;
+        case 2: return R_FLUSH_DSB | R_FLUSH_INV;
+        case 3: return R_FLUSH_DSB | R_FLUSH_CLEAN;
+        case 4: return R_FLUSH_DSB | R_FLUSH_CLEAN | R_FLUSH_POU;
+        case 5: return R_FLUSH_INV | R_FLUSH_CLEAN;
+        case 6: return R_FLUSH_INV;
+        case 7: return R_FLUSH_CLEAN;
+        case 8: return R_FLUSH_CLEAN | R_FLUSH_POU;
+        default:
+            return R_FLUSH_DSB | R_FLUSH_INV | R_FLUSH_CLEAN;
     }
 }
 

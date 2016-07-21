@@ -34,12 +34,16 @@ typedef enum _val_t {
 #define R_PREFETCH_L2   0x8
 #define R_PREFETCH_L3   0xc
 #define R_PREFETCH_LDR_SHIFT 8
-#define R_PREFETCH_STR_SHIFT 8
+#define R_PREFETCH_STR_SHIFT 12
 typedef enum _reg_flag_t {
     R_OUTPUT            = 0x1,
     R_ADDRESS           = 0x2,
-    R_FLUSH             = 0x4,
-    R_PRELOAD           = 0x8,
+    R_PRELOAD           = 0x4,
+    R_FLUSH             = 0x30,
+    R_FLUSH_INV         = 0x10,
+    R_FLUSH_CLEAN       = 0x20,
+    R_FLUSH_POU         = 0x40,
+    R_FLUSH_DSB         = 0x80,
     R_PREFETCH_LDR_MASK = R_PREFETCH_MASK << R_PREFETCH_LDR_SHIFT,
     R_PREFETCH_LDR_KEEP = R_PREFETCH_KEEP << R_PREFETCH_LDR_SHIFT,
     R_PREFETCH_LDR_STRM = R_PREFETCH_STRM << R_PREFETCH_LDR_SHIFT,

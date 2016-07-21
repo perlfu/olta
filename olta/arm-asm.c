@@ -136,6 +136,10 @@ static void _isb(asm_ctx_t *ctx) {
     _bar(ctx, BAR_ISB, BAR_FULL_SYSTEM, BAR_ALL);
 }
 
+static void _dsb_sy(asm_ctx_t *ctx) {
+    _bar(ctx, BAR_DSB, BAR_FULL_SYSTEM, BAR_ALL);
+}
+
 static void _dsb_ish(asm_ctx_t *ctx) {
     _bar(ctx, BAR_DSB, BAR_INNER_SHAREABLE, BAR_ALL);
 }
@@ -167,8 +171,39 @@ static void _nop_pad_to(asm_ctx_t *ctx, int target) {
     }
 }
 
-static void _flush_dcache(asm_ctx_t *ctx, reg_t addr_r) {
+/* data cache clean virtual address to point of coherence  */
+static void _dc_cvac(asm_ctx_t *ctx, reg_t addr_r) {
+    ctx->buf[(ctx->idx)++] = 0xd50b7a20 | addr_r;
+}
+
+/* data cache clean virtual address to point of unification  */
+static void _dc_cvau(asm_ctx_t *ctx, reg_t addr_r) {
+    ctx->buf[(ctx->idx)++] = 0xd50b7b20 | addr_r;
+}
+
+/* data cache invalidate virtual address to point of coherence */
+static void _dc_ivac(asm_ctx_t *ctx, reg_t addr_r) {
+    ctx->buf[(ctx->idx)++] = 0xd5087620 | addr_r;
+}
+
+/* data cache clean and invalidate virtual address to point of coherence */
+static void _dc_civac(asm_ctx_t *ctx, reg_t addr_r) {
     ctx->buf[(ctx->idx)++] = 0xd50b7e20 | addr_r;
+}
+
+static void _flush_dcache(asm_ctx_t *ctx, reg_t addr_r, int flags) {
+    if ((flags & (R_FLUSH_INV | R_FLUSH_CLEAN)) == (R_FLUSH_INV | R_FLUSH_CLEAN)) {
+        _dc_civac(ctx, addr_r);
+    } else if (flags & R_FLUSH_INV) {
+        _dc_ivac(ctx, addr_r);
+    } else if (flags & R_FLUSH_CLEAN) {
+        if (flags & R_FLUSH_POU)
+            _dc_cvau(ctx, addr_r);
+        else
+            _dc_cvac(ctx, addr_r);
+    }
+    if (flags & R_FLUSH_DSB)
+        _dsb_sy(ctx);
 }
 
 static int encode_prfop(int r_flags) {
@@ -622,7 +657,7 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
         stride = size;
     }
     
-    if ((ao & AO_LDR) || (ao & AO_STR)) {
+    if (ao & (AO_LDR | AO_STR | AO_FLUSH)) {
         _ldr_ind_idx(ctx, base_r, ctx->r_bootrec, bootrec_offset);
         _mov_const(ctx, limit_r, 1);
         _lsl(ctx, limit_r, limit_r, buf_size);
@@ -647,18 +682,24 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
                 } else {
                     log_warning("unknown prefetch %d:%d in ancillary %s:%d sequence \"%s\"", ao_p->v, ao_p->s, th->name, i_n, desc);
                 }
+            } else if (ao & AO_FLUSH) {
+                __add(ctx, data_r, base_r, idx_r);
+                _flush_dcache(ctx, data_r, interpret_flush_type(ao_p->v == 0 ? 1 : ao_p->v));
             } else if (ao & AO_LDR) {
                 if (size < 8)
                     _mov_const(ctx, data_r, 0);
                 _ldr_ind_by_size_offset_r(ctx, size, data_r, base_r, idx_r, 0);
                 if (ao & AO_UPDATE_SR)
                     __add(ctx, ctx->r_stall, ctx->r_stall, data_r); 
-            } else {
+            } else if (ao & AO_STR) {
                 _str_ind_by_size_offset_r(ctx, size, ctx->r_stall, base_r, idx_r, 0);
                 if (ao & AO_UPDATE_SR)
                     _add_const(ctx, ctx->r_stall, 1);
+            } else {
+                assert(0);
             }
-            if ((ao & AO_INC) || (ao & AO_DEC)) {
+
+            if (ao & (AO_INC | AO_DEC)) {
                 if (ao & AO_INC)
                     _add_const(ctx, idx_r, stride);
                 else
@@ -666,7 +707,7 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
                 __and(ctx, idx_r, idx_r, limit_r);
             } 
         }
-    } else if ((ao & AO_INC) || (ao & AO_DEC)) {
+    } else if (ao & (AO_INC | AO_DEC)) {
         if (ao_p->n_arg > 0) 
             size = rep;
         else
@@ -1302,8 +1343,7 @@ void *build_thread_code(litmus_t *test, tthread_t *th, thread_ctx_t *thread_ctx)
                 _dsb_ish(&ctx);
             }
             if (r->flags & R_FLUSH) {
-                _flush_dcache(&ctx, r->n);
-                _dsb_ish(&ctx);
+                _flush_dcache(&ctx, r->n, r->flags);
             }
         }
     }

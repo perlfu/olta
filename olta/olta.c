@@ -262,8 +262,8 @@ static void run_test(litmus_t *lt, result_set_t *rs) {
                 // update flags
                 if (preload == 1)
                     tt->reg[j].flags |= R_PRELOAD;
-                if (flush == 1)
-                    tt->reg[j].flags |= R_FLUSH;
+                if (flush)
+                    tt->reg[j].flags |= interpret_flush_type(flush);
                 if (prefetch_ldr_type)
                     tt->reg[j].flags |= prefetch_flags(prefetch_ldr_type, prefetch_ldr_level) << R_PREFETCH_LDR_SHIFT;
                 if (prefetch_str_type)
