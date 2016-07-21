@@ -39,7 +39,8 @@ typedef enum _ao_t {
     AO_UPDATE_SR        = 0x00800,
     AO_INC              = 0x04000,
     AO_DEC              = 0x08000,
-    AO_SET              = 0x00400
+    AO_SET              = 0x00400,
+    AO_PREFETCH         = 0x10000
 } ao_t;
 
 typedef struct _aopt_t aopt_t;

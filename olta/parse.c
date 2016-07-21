@@ -1341,8 +1341,10 @@ static ao_t parse_ancillary_opt(const char *s) {
         int res = AO_BUF_OP | ((strncmp(s, "unq", 3) == 0) ? AO_UNQ : AO_SHR);
         res |= (strncmp(s + 4, "str", 3) == 0 ? AO_STR : 0);
         res |= (strncmp(s + 4, "sts", 3) == 0 ? AO_STR | AO_UPDATE_SR : 0);
+        res |= (strncmp(s + 4, "stp", 3) == 0 ? AO_STR | AO_PREFETCH : 0);
         res |= (strncmp(s + 4, "ldr", 3) == 0 ? AO_LDR : 0);
         res |= (strncmp(s + 4, "lds", 3) == 0 ? AO_LDR | AO_UPDATE_SR : 0);
+        res |= (strncmp(s + 4, "lds", 3) == 0 ? AO_LDR | AO_PREFETCH : 0);
         res |= (strncmp(s + 4, "inc", 3) == 0 ? AO_INC : 0);
         res |= (strncmp(s + 4, "dec", 3) == 0 ? AO_DEC : 0);
         res |= (strncmp(s + 4, "set", 3) == 0 ? AO_SET : 0);

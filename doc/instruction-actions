@@ -36,9 +36,15 @@ unq-str,N,S         - store S bytes (1,2,4,8) to unq buffer N times [N=1,S=8]
                       the value of the r_stall register is written
 unq-sts,N,S         - as unq-str, where additionally
                       the value of r_stall is incremented by 1 after store
+unq-stp,N,T,L       - prefetch unq buffer for store N times
+                      T behaves as prefetch-str-type for a memory location
+                      L behaves as prefetch-str-level for a memory location
 unq-ldr,N,S         - load S bytes (1,2,4,8) from unq buffer N times [N=1,S=8]
                       the result of the load is discarded
 unq-lds,N,S         - as unq-ldr, but the loaded value is added to r_stall 
+unq-stp,N,T,L       - prefetch unq buffer for load N times
+                      T behaves as prefetch-ldr-type for a memory location
+                      L behaves as prefetch-ldr-level for a memory location
 unq-inc,I           - add S to the unq buffer pointer [I=8]
 unq-dec,I           - subtract S from unq buffer pointer [I=8]
 unq-set,P           - unq buffer pointer is set to P [P=0]

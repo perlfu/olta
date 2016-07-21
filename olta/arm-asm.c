@@ -628,9 +628,26 @@ static void build_buffer_op(asm_ctx_t *ctx, aopt_t *ao_p,
         _lsl(ctx, limit_r, limit_r, buf_size);
         _sub_const(ctx, limit_r, 1);
         
+        if (ao & AO_PREFETCH)
+            stride = 8;
+
         for (i = 0; i < rep; ++i) {
             // FIXME: add loop rolling
-            if (ao & AO_LDR) {
+            if (ao & AO_PREFETCH) {
+                if (ao_p->v && (ao_p->s & 0x3)) {
+                    int flags = 0;
+                    flags |= (ao_p->v == 2 ? R_PREFETCH_STRM : R_PREFETCH_KEEP);
+                    flags |= ((ao_p->s & 0x3) << 2);
+                    if (ao & AO_LDR)
+                        flags <<= R_PREFETCH_LDR_SHIFT;
+                    else if (ao & AO_STR)
+                        flags <<= R_PREFETCH_STR_SHIFT;
+                    __add(ctx, data_r, base_r, idx_r);
+                    _prfum(ctx, encode_prfop(flags), data_r, 0);
+                } else {
+                    log_warning("unknown prefetch %d:%d in ancillary %s:%d sequence \"%s\"", ao_p->v, ao_p->s, th->name, i_n, desc);
+                }
+            } else if (ao & AO_LDR) {
                 if (size < 8)
                     _mov_const(ctx, data_r, 0);
                 _ldr_ind_by_size_offset_r(ctx, size, data_r, base_r, idx_r, 0);
