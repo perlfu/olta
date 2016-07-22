@@ -363,6 +363,42 @@ out:
     free(ctx);
 }
 
+static void add_dummy_thread(litmus_t *lt) {
+    const char *name = config_lookup_var_str(lt, "dummy-thread", NULL);
+    tthread_t *nth;
+    int id = 0, n_ins = 0;
+    int i;
+
+    if (!name)
+        return;
+
+    log_debug("adding dummy thread %s", name);
+
+    for (i = 0; i < lt->n_tthread; ++i) {
+        tthread_t *th = &(lt->tthread[i]);
+        if (th->id >= id)
+            id = th->id + 1;
+        if (th->n_ins > n_ins)
+            n_ins = th->n_ins;
+    }
+
+    nth = &(lt->tthread[lt->n_tthread]);
+    lt->n_tthread += 1;
+
+    nth->id = id;
+    nth->name = strdup(name);
+    nth->n_reg = 0;
+    nth->n_ins = n_ins;
+    for (i = 0; i < n_ins; ++i) {
+        ins_desc_t *ins = &(nth->ins[i]);
+        ins->ins = I_NOP;
+        ins->label = NULL;
+        ins->size = 0;
+        ins->flags = 0;
+        ins->n_arg = 0;
+    }
+}
+
 static void do_test(litmus_t *lt) {
     if (lt) {
         const char *label = config_lookup_var_str(lt, "label", NULL);
@@ -379,6 +415,8 @@ static void do_test(litmus_t *lt) {
         else
             log_sep("start");
 
+        add_dummy_thread(lt);
+        
         print_test_file(lt);
         print_test(lt);
 

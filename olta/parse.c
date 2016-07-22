@@ -824,6 +824,10 @@ static int parse_ins(tthread_t *thread, const char *line, char *err) {
         }
             
         return 1;
+    } else if (strcmp(line, "nop") == 0) {
+        d->ins = I_NOP;
+        d->size = 0;
+        return 1;
     } else {
         snprintf(err, BUFFER_LEN - 1, "unknown instruction \"%s\"", line);
         return -1;
@@ -1213,6 +1217,7 @@ static const char *ins_name(ins_t ins) {
         case I_BNE: return "BNE";
         case I_BEQ: return "BEQ";
         case I_AND: return "AND";
+        case I_NOP: return "NOP";
         case I_LABEL: return "LABEL";
         default: return "UNKNOWN";
     }

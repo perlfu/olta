@@ -21,6 +21,7 @@ sync-stall      - number of add1 stall instructions to put in sync loop
 shared-buffer-size  
                 - size in bytes of buffer available to all threads [67108864]
                   must be a power of two
+dummy-thread    - add a thread of NOP instructions with given name [""]
 
 
 ## Memory Location Parameters

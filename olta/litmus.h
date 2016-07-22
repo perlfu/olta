@@ -16,7 +16,8 @@ typedef enum {
     I_LABEL,
     I_BNE,
     I_BEQ,
-    I_AND
+    I_AND,
+    I_NOP
 } ins_t;
 
 typedef enum _val_t {
@@ -128,7 +129,7 @@ struct _spec_var_t {
 };
 
 #define MAX_MEM_LOC (4)
-#define MAX_TTHREAD (4)
+#define MAX_TTHREAD (8)
 typedef struct _litmus_t {
     int id;
 

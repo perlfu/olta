@@ -152,6 +152,7 @@ static void _dmb_ish(asm_ctx_t *ctx) {
     _bar(ctx, BAR_DMB, BAR_INNER_SHAREABLE, BAR_ALL);
 }
 
+__attribute__ ((unused))
 static void _dmb_ishst(asm_ctx_t *ctx) {
     _bar(ctx, BAR_DMB, BAR_INNER_SHAREABLE, BAR_WRITES);
 }
@@ -426,7 +427,6 @@ static void _stall(asm_ctx_t *ctx, int size) {
     }
 }
 
-__attribute__ ((unused))
 static void _wait_for_zero(asm_ctx_t *ctx, reg_t addr_r, int stall) {
     _stall(ctx, stall);
     _dsb_ishld(ctx);
@@ -463,18 +463,18 @@ static void _addr_dep(asm_ctx_t *ctx, reg_t dst_r, reg_t src_r) {
 }
 
 __attribute__ ((unused))
-static void _atomic_add_const(asm_ctx_t *ctx, reg_t addr_r, int val) {
-    ctx->buf[(ctx->idx)++] = 0xc85f7c00 | (addr_r << 5) | (ctx->r_tmp0); /* ldxr t0, addr_r */
-    _add_const(ctx, ctx->r_tmp0, val);
-    ctx->buf[(ctx->idx)++] = 0xc8007c00 | (ctx->r_tmp1 << 16) | (addr_r << 5) | (ctx->r_tmp0); /* stxr tw1, t0, addr_r  */
-    ctx->buf[(ctx->idx)++] = 0x35ffffa0 | (ctx->r_tmp1); /* cbnz tw1, - */
+static void _atomic_add_const(asm_ctx_t *ctx, reg_t addr_r, int val, reg_t res_r, reg_t tmp_r) {
+    ctx->buf[(ctx->idx)++] = 0xc85f7c00 | (addr_r << 5) | (res_r); /* ldxr t0, addr_r */
+    _add_const(ctx, res_r, val);
+    ctx->buf[(ctx->idx)++] = 0xc8007c00 | (tmp_r << 16) | (addr_r << 5) | (res_r); /* stxr tw1, t0, addr_r  */
+    ctx->buf[(ctx->idx)++] = 0x35ffffa0 | (tmp_r); /* cbnz tw1, - */
 }
 
-static void _atomic_sub_const(asm_ctx_t *ctx, reg_t addr_r, int val) {
-    ctx->buf[(ctx->idx)++] = 0xc85f7c00 | (addr_r << 5) | (ctx->r_tmp0); /* ldxr t0, addr_r */
-    _sub_const(ctx, ctx->r_tmp0, val);
-    ctx->buf[(ctx->idx)++] = 0xc8007c00 | (ctx->r_tmp1 << 16) | (addr_r << 5) | (ctx->r_tmp0); /* stxr tw1, t0, addr_r  */
-    ctx->buf[(ctx->idx)++] = 0x35ffffa0 | (ctx->r_tmp1); /* cbnz tw1, - */
+static void _atomic_sub_const(asm_ctx_t *ctx, reg_t addr_r, int val, reg_t res_r, reg_t tmp_r) {
+    ctx->buf[(ctx->idx)++] = 0xc85f7c00 | (addr_r << 5) | (res_r); /* ldxr t0, addr_r */
+    _sub_const(ctx, res_r, val);
+    ctx->buf[(ctx->idx)++] = 0xc8007c00 | (tmp_r << 16) | (addr_r << 5) | (res_r); /* stxr tw1, t0, addr_r  */
+    ctx->buf[(ctx->idx)++] = 0x35ffffa0 | (tmp_r); /* cbnz tw1, - */
 }
 
 
@@ -527,27 +527,24 @@ static reg_t assign_register(uint32_t *map, int offset) {
     return X0;
 }
 
-static void build_ms_sync(asm_ctx_t *ctx, const int master, int stall) {
-    if (!master) {
-        _mov_const(ctx, ctx->r_tmp0, 0);
-        _str_ind(ctx, ctx->r_tmp0, ctx->r_sync_b);
-        _dsb_ish(ctx);
-    }
-    
-    _atomic_sub_const(ctx, ctx->r_sync_a, 1);
+static void build_ms_sync(asm_ctx_t *ctx, const int master, const int end, int stall) {
+    _atomic_sub_const(ctx, ctx->r_sync_a, 1, ctx->r_tmp0, ctx->r_tmp1);
     _dsb_ish(ctx);
 
     if (master) {
         _wait_for_zero(ctx, ctx->r_sync_a, stall);
-        
+        _dsb_ish(ctx);
         _str_ind(ctx, ctx->r_threads, ctx->r_sync_a);
         _dsb_ish(ctx);
         
-        _mov_const(ctx, ctx->r_tmp0, 1);
+        _mov_const(ctx, ctx->r_tmp0, end ? 1 : 0);
         _str_ind(ctx, ctx->r_tmp0, ctx->r_sync_b);
         _dsb_ish(ctx);
     } else {
-        _wait_for_not_zero(ctx, ctx->r_sync_b, stall);
+        if (end)
+            _wait_for_not_zero(ctx, ctx->r_sync_b, stall);
+        else
+            _wait_for_zero(ctx, ctx->r_sync_b, stall);
     }
 }
 
@@ -572,14 +569,16 @@ static void build_rr_sync(asm_ctx_t *ctx, reg_t reg, int this_n, int stall) {
     // wait for sync (sync == sync thread #)
     _dmb_ish(ctx);
     _wait_for_val(ctx, reg, ctx->r_tmp0, stall);
+    _dmb_ish(ctx);
 }
 
 static void build_cd_sync(asm_ctx_t *ctx, reg_t reg, int stall) {
-    _atomic_sub_const(ctx, reg, 1);
-    _dsb_ish(ctx);
-    _wait_for_zero(ctx, reg, stall);
+    _atomic_sub_const(ctx, reg, 1, ctx->r_tmp0, ctx->r_tmp1);
+    _cbnz(ctx, ctx->r_tmp0, 1);
     _str_ind(ctx, ctx->r_threads, reg);
-    _dmb_ishst(ctx);
+    _dmb_ish(ctx);
+    _wait_for_val(ctx, reg, ctx->r_threads, stall);
+    _dmb_ish(ctx);
 }
 
 static void build_sync_start(asm_ctx_t *ctx) {
@@ -587,7 +586,7 @@ static void build_sync_start(asm_ctx_t *ctx) {
     if (strcmp(sync, "ms") == 0) {
         const char *master = config_lookup_var_str(ctx->test, "sync-master", ctx->test->tthread[0].name);
         int is_master = (strcmp(master, ctx->thread->name) == 0);
-        build_ms_sync(ctx, is_master, 0);
+        build_ms_sync(ctx, is_master, 0, 0);
     } else if (strcmp(sync, "cd") == 0) {
         build_cd_sync(ctx, ctx->r_sync_a, 0);
     } else {
@@ -611,7 +610,7 @@ static void build_sync_end(asm_ctx_t *ctx) {
     if (strcmp(sync, "ms") == 0) {
         const char *master = config_lookup_var_str(test, "sync-master", test->tthread[0].name);
         int is_master = (strcmp(master, th->name) == 0);
-        build_ms_sync(ctx, is_master, sync_stall);
+        build_ms_sync(ctx, is_master, 1, sync_stall);
     } else if (strcmp(sync, "cd") == 0) {
         build_cd_sync(ctx, ctx->r_sync_b, sync_stall);
     } else {
@@ -1085,6 +1084,9 @@ static int build_instruction(asm_ctx_t *ctx, ins_desc_t *desc) {
         case I_DSB:
         case I_ISB:
             return build_bar(ctx, desc);
+        case I_NOP:
+            _nop(ctx);
+            return 0;
         default:
             log_error("unknown instruction %d", desc->ins);
             return -1;
