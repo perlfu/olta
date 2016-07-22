@@ -14,7 +14,7 @@ debug-asm-regs  - dump list of assigned registers [0]
 addr-dep        - method used for stall address dependencies [addsub]
 record-timing   - output cycle timing for tests, requires PMU access [0]
 sync            - synchronisation method between test threads [rr]
-                  can be round-robin (rr), master-slave (ms) or countdown (cd)
+                  can be round-robin (rr), master-slave (ms) or count-down (cd)
                   see the `sync-methods` file for more details
 sync-master     - name of master thread for 'ms' sync
 sync-stall      - number of add1 stall instructions to put in sync loop
@@ -29,6 +29,8 @@ dummy-thread    - add a thread of NOP instructions with given name [""]
 These parameters apply to a specific named memory location (MLN).
 
 MLN-stride       - stride bytes between tests [word size of location]
+MLN-offset       - initial offset (in bytes) of location [0]
+                   note: care must be taken with unaligned accesses 
 
 
 ## Thread Parameters

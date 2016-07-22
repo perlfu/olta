@@ -112,6 +112,7 @@ typedef struct _mem_loc_t {
     char *name;
     int size;
     int stride;
+    int offset;
     uint64_t v;
 } mem_loc_t;
 

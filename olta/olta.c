@@ -63,7 +63,13 @@ static void release_buffer(litmus_t *lt, uint64_t *ptr, size_t bytes) {
 
 static void update_mem_loc_config(litmus_t *lt, mem_loc_t *ml) {
     int stride = config_mem_loc_var_int(lt, NULL, ml, "stride", ml->stride);
+    int offset = config_mem_loc_var_int(lt, NULL, ml, "offset", 0);
+    
+    assert(stride >= 0);
+    assert(offset >= 0);
+    
     ml->stride = stride;
+    ml->offset = offset;
 }
 
 static int prepare_output_format(litmus_t *lt, char **outfmt) {
@@ -111,27 +117,28 @@ static int prepare_output_format(litmus_t *lt, char **outfmt) {
     return n_out;
 }
 
-static void fill_memory(uint64_t *mem, int size, uint64_t v, size_t bytes) {
-    unsigned int cnt = bytes;
+static void fill_memory(uint64_t *mem, int offset, int size, uint64_t v, size_t bytes) {
+    unsigned int cnt = bytes - offset;
+    uint8_t *base = ((uint8_t *)mem) + offset;
 
     switch (size) {
         case 1:
-            memset(mem, v & 0xff, bytes);
+            memset(base, v & 0xff, cnt);
             break;
         case 2: {
-                uint16_t *p = (uint16_t *)mem;
+                uint16_t *p = (uint16_t *)base;
                 cnt /= 2;
                 while (cnt--) *(p++) = (v & 0xff);
             }
             break;
         case 4: {
-                uint32_t *p = (uint32_t *)mem;
+                uint32_t *p = (uint32_t *)base;
                 cnt /= 4;
                 while (cnt--) *(p++) = v;
             }
             break;
         case 8: {
-                uint64_t *p = (uint64_t *)mem;
+                uint64_t *p = (uint64_t *)base;
                 cnt /= 8;
                 while (cnt--) *(p++) = v;
             }
@@ -140,6 +147,19 @@ static void fill_memory(uint64_t *mem, int size, uint64_t v, size_t bytes) {
             assert(0);
     }
 }
+
+static uint64_t get_memory_value(mem_loc_t *ml, uint64_t *data, int idx) {
+    uint8_t *ptr = ((uint8_t *)data) + ml->offset + (ml->stride * idx);
+    switch (ml->size) {
+        case 1: return (uint64_t) *ptr;
+        case 2: return (uint64_t) *((uint16_t *)ptr);
+        case 4: return (uint64_t) *((uint32_t *)ptr);
+        case 8: return (uint64_t) *((uint64_t *)ptr);
+    }
+    assert(0);
+    return 0;
+}
+
 
 static int prefetch_flags(int type, int level) {
     int flags = 0;
@@ -200,7 +220,7 @@ static void run_test(litmus_t *lt, result_set_t *rs) {
         mem_loc_t *ml = &(lt->mem_loc[i]);
         size_t bytes;
        
-        bytes = ml->size * ml->stride * ctx->n_iterations;
+        bytes = ml->offset + ml->size * ml->stride * ctx->n_iterations;
         bytes += (1 << 20) - (bytes & ((1 << 20) - 1)); // round to nearest MiB
 
         mem_loc[i] = (uint64_t *) malloc(bytes);
@@ -209,7 +229,7 @@ static void run_test(litmus_t *lt, result_set_t *rs) {
             if (ml->v == 0) {
                 memset(mem_loc[i], 0, bytes);
             } else {
-                fill_memory(mem_loc[i], ml->size, ml->v, bytes);
+                fill_memory(mem_loc[i], ml->offset, ml->size, ml->v, bytes);
             }
         } else {
             log_error("memory location allocation failed (%d bytes)", bytes);
@@ -268,7 +288,7 @@ static void run_test(litmus_t *lt, result_set_t *rs) {
                     tt->reg[j].flags |= prefetch_flags(prefetch_str_type, prefetch_str_level) << R_PREFETCH_STR_SHIFT;
 
                 // set memory location pointer
-                t->reg[j] = (uint64_t) mem_loc[mem_loc_n];
+                t->reg[j] = ((uint64_t) mem_loc[mem_loc_n]) + ml->offset;
             } else {
                 t->reg[j] = tt->reg[j].v;
             }
@@ -310,7 +330,8 @@ static void run_test(litmus_t *lt, result_set_t *rs) {
         int idx = 0;
         
         for (i = 0; i < lt->n_mem_loc; ++i) {
-            out_vs[idx++] = mem_loc[i][n];
+            mem_loc_t *ml = &(lt->mem_loc[i]);
+            out_vs[idx++] = get_memory_value(ml, mem_loc[i], n);
         }
 
         for (i = 0; i < n_threads; ++i) {

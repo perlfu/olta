@@ -1012,6 +1012,7 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
         ml->name = strdup(v_name);
         ml->size = size;
         ml->stride = size;
+        ml->offset = 0;
         ml->v = 0;
         test->n_mem_loc += 1;
         return 0;
