@@ -997,7 +997,7 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
         char reg[BUFFER_LEN], v_name[BUFFER_LEN];
         char buf[BUFFER_LEN], v_type[BUFFER_LEN];
         int colon, reg_len;
-        int size = -1;
+        int size = 8;
         
         eqsplit2(token, reg, v_name);
         reg_len = strlen(reg);
@@ -1074,8 +1074,8 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
                         break;
                 }
                 if (ml_n >= test->n_mem_loc) {
-                    snprintf(err, BUFFER_LEN - 1, "unknown memory location \"%s\" (2)", v_name);
-                    return -1;
+                    define_mem_loc(test, v_name, size);
+                    ml_n = test->n_mem_loc - 1; // XXX: assumes nothing strange in define_mem_loc
                 }
                 tag_reg_mem_loc(regp, reg, ml_n);
             }
