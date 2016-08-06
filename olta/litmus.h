@@ -23,6 +23,7 @@ typedef enum {
 typedef enum _val_t {
     T_UNKNOWN = 0,
     T_PTR,
+    T_VAL1,
     T_VAL2,
     T_VAL4,
     T_VAL8
@@ -86,7 +87,7 @@ typedef struct _ins_desc_t {
     ins_arg_t arg[MAX_INS_ARGS];
 } ins_desc_t;
 
-#define MAX_TREG_NAME (3)
+#define MAX_TREG_NAME (7)
 typedef struct _treg_t {
     val_t t;
     int n;

@@ -871,42 +871,103 @@ static int tag_ins_args(tthread_t *thread, ins_desc_t *ins) {
     return 0;
 }
 
-
-static int tag_reg_mem_loc(tthread_t *thread, const char *name, int ml_n) {
-    int reg_n = extract_reg_n(name);
-    int i;
-    for (i = 0; i < thread->n_reg; ++i) {
-        treg_t *reg = &(thread->reg[i]);
-        if (reg->n == reg_n) {
-            reg->t = T_PTR;
-            reg->v = ml_n;
-            strncpy(reg->name, name, MAX_TREG_NAME);
-            reg->name[MAX_TREG_NAME] = '\0';
-            return 0;
-        }
+static void set_reg_name(treg_t *reg, const char *name) {
+    int colon = find_char(name, ':');
+    if (colon >= 0) {
+        strncpy(reg->name, name + colon + 1, MAX_TREG_NAME);
+    } else {
+        strncpy(reg->name, name, MAX_TREG_NAME);
     }
-    return -1;
+    reg->name[MAX_TREG_NAME] = '\0';
 }
 
-static int tag_reg_val(tthread_t *thread, const char *name, uint64_t v) {
-    int reg_n = extract_reg_n(name);
-    int i;
-    for (i = 0; i < thread->n_reg; ++i) {
-        treg_t *reg = &(thread->reg[i]);
-        if (reg->n == reg_n) {
-            if ((v & 0xffff) == v)
-                reg->t = T_VAL2;
-            else if ((v & 0xffffffff))
-                reg->t = T_VAL4;
-            else
-                reg->t = T_VAL8;
-            reg->v = v;
-            strncpy(reg->name, name, MAX_TREG_NAME);
-            reg->name[MAX_TREG_NAME] = '\0';
-            return 0;
+static void tag_reg_mem_loc(treg_t *reg, const char *name, int ml_n) {
+    reg->t = T_PTR;
+    reg->v = ml_n;
+    set_reg_name(reg, name);
+}
+
+static void tag_reg_val(treg_t *reg, const char *name, uint64_t v, int t) {
+    if ((v & 0xffff) == v)
+        reg->t = T_VAL2;
+    else if ((v & 0xffffffff))
+        reg->t = T_VAL4;
+    else
+        reg->t = T_VAL8;
+    reg->v = v;
+    reg->t = t;
+    set_reg_name(reg, name);
+}
+
+static treg_t *find_thread_reg(litmus_t *test, const char *handle) {
+    char reg[BUFFER_LEN]; 
+    int colon = find_char(handle, ':');
+    
+    if (colon >= 0) {
+        tthread_t *thread;
+        int reg_len = strlen(handle);
+        int thread_n, reg_n;
+        int i;
+
+        strcpy(reg, handle);
+        reg[colon] = '\0';
+        thread_n = atoi(reg);
+        memmove(reg, reg + colon + 1, reg_len - colon);
+        reg_len -= colon + 1;
+        reg[reg_len] = '\0';
+        reg_n = extract_reg_n(reg);
+        
+        if (thread_n < 0 || thread_n >= test->n_tthread) {
+            return NULL;
+        }
+
+        thread = &(test->tthread[thread_n]);
+        for (i = 0; i < thread->n_reg; ++i) {
+            treg_t *reg = &(thread->reg[i]);
+            if (reg->n == reg_n)
+                return reg;
         }
     }
-    return -1;
+
+    return NULL;
+}
+
+static int valt_for_type(const char *v_type) {
+    if (strcmp(v_type, "uint64_t") == 0 || strcmp(v_type, "int64_t") == 0) {
+        return T_VAL8;
+    } else if (strcmp(v_type, "uint32_t") == 0 || strcmp(v_type, "int32_t") == 0) {
+        return T_VAL4;
+    } else if (strcmp(v_type, "uint16_t") == 0 || strcmp(v_type, "int16_t") == 0) {
+        return T_VAL2;
+    } else if (strcmp(v_type, "uint8_t") == 0 || strcmp(v_type, "int8_t") == 0) {
+        return T_VAL1;
+    } else {
+        return T_VAL8; // XXX: default
+    }
+}
+
+static int size_to_valt(int size) {
+    switch (size) {
+        case 8: return T_VAL8;
+        case 4: return T_VAL4;
+        case 2: return T_VAL2;
+        case 1: return T_VAL1;
+        default: assert(0);
+    }
+}
+
+static int size_for_type(const char *v_type) {
+    if (strcmp(v_type, "uint64_t") == 0 || strcmp(v_type, "int64_t") == 0) {
+        return 8;
+    } else if (strcmp(v_type, "uint32_t") == 0 || strcmp(v_type, "int32_t") == 0) {
+        return 4;
+    } else if (strcmp(v_type, "uint16_t") == 0 || strcmp(v_type, "int16_t") == 0) {
+        return 2;
+    } else if (strcmp(v_type, "uint8_t") == 0 || strcmp(v_type, "int8_t") == 0) {
+        return 1;
+    } else {
+        return -1;
+    }
 }
 
 static int parse_var_token(litmus_t *test, const char *token, char *err) {
@@ -915,7 +976,9 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
     if (eq >= 0) {
         /* variable assignment */
         char reg[BUFFER_LEN], v_name[BUFFER_LEN];
+        char buf[BUFFER_LEN], v_type[BUFFER_LEN];
         int colon, reg_len;
+        int valt = T_VAL8;
         
         eqsplit2(token, reg, v_name);
         reg_len = strlen(reg);
@@ -923,6 +986,12 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
         if ((reg_len == 0) || (strlen(v_name) == 0)) {
             snprintf(err, BUFFER_LEN - 1, "unknown variable format \"%s\"", token);
             return -1;
+        }
+        
+        wssplit2(reg, v_type, buf);
+        if (strlen(buf) > 0) {
+            valt = valt_for_type(v_type); 
+            strcpy(reg, buf);
         }
         
         colon = find_char(reg, ':');
@@ -955,21 +1024,15 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
             }
         } else {
             // assign thread register value
-            int thread_n, ret;
+            treg_t *regp = find_thread_reg(test, reg);
             
-            reg[colon] = '\0';
-            thread_n = atoi(reg);
-            memmove(reg, reg + colon + 1, reg_len - colon);
-            reg_len -= colon + 1;
-            reg[reg_len] = '\0';
-
-            if (thread_n < 0 || thread_n >= test->n_tthread) {
-                snprintf(err, BUFFER_LEN - 1, "unknown thread %d", thread_n);
+            if (regp == NULL) {
+                snprintf(err, BUFFER_LEN - 1, "unknown thread register \"%s\"", reg);
                 return -1;
             }
 
             if (isdigit(v_name[0])) {
-                ret = tag_reg_val(&(test->tthread[thread_n]), reg, strtoull(v_name, NULL, 0));
+                tag_reg_val(regp, reg, strtoull(v_name, NULL, 0), valt);
             } else {
                 int ml_n;
                 for (ml_n = 0; ml_n < test->n_mem_loc; ++ml_n) {
@@ -980,12 +1043,7 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
                     snprintf(err, BUFFER_LEN - 1, "unknown memory location \"%s\" (2)", v_name);
                     return -1;
                 }
-                ret = tag_reg_mem_loc(&(test->tthread[thread_n]), reg, ml_n);
-            }
-
-            if (ret < 0) {
-                snprintf(err, BUFFER_LEN - 1, "register \"%s\" not valid for thread %d", reg, thread_n);
-                return -1;
+                tag_reg_mem_loc(regp, reg, ml_n);
             }
         }
 
@@ -994,27 +1052,36 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
         /* variable declaration */
         char v_type[BUFFER_LEN], v_name[BUFFER_LEN];
         mem_loc_t *ml = &(test->mem_loc[test->n_mem_loc]);
-        int size;
+        int size, colon;
 
         wssplit2(token, v_type, v_name);
         if (strlen(v_name) == 0) {
             snprintf(err, BUFFER_LEN - 1, "variable has no name \"%s\"", token);
             return -1;
         }
-
-        if (strcmp(v_type, "uint64_t") == 0) {
-            size = 8;
-        } else {
+        
+        size = size_for_type(v_type);
+        if (size <= 0) {
             snprintf(err, BUFFER_LEN - 1, "unknown variable type \"%s\"", v_type);
             return -1;
         }
         
-        ml->name = strdup(v_name);
-        ml->size = size;
-        ml->stride = size;
-        ml->offset = 0;
-        ml->v = 0;
-        test->n_mem_loc += 1;
+        colon = find_char(v_name, ':');
+        if (colon < 0) {
+            ml->name = strdup(v_name);
+            ml->size = size;
+            ml->stride = size;
+            ml->offset = 0;
+            ml->v = 0;
+            test->n_mem_loc += 1;
+        } else {
+            treg_t *reg = find_thread_reg(test, v_name);
+            if (reg) {
+                set_reg_name(reg, v_name);
+                reg->t = size_to_valt(size);
+            }
+        }
+        
         return 0;
     }
 }
