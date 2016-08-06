@@ -932,20 +932,6 @@ static treg_t *find_thread_reg(litmus_t *test, const char *handle) {
     return NULL;
 }
 
-static int valt_for_type(const char *v_type) {
-    if (strcmp(v_type, "uint64_t") == 0 || strcmp(v_type, "int64_t") == 0) {
-        return T_VAL8;
-    } else if (strcmp(v_type, "uint32_t") == 0 || strcmp(v_type, "int32_t") == 0) {
-        return T_VAL4;
-    } else if (strcmp(v_type, "uint16_t") == 0 || strcmp(v_type, "int16_t") == 0) {
-        return T_VAL2;
-    } else if (strcmp(v_type, "uint8_t") == 0 || strcmp(v_type, "int8_t") == 0) {
-        return T_VAL1;
-    } else {
-        return T_VAL8; // XXX: default
-    }
-}
-
 static int size_to_valt(int size) {
     switch (size) {
         case 8: return T_VAL8;
@@ -970,6 +956,17 @@ static int size_for_type(const char *v_type) {
     }
 }
 
+static mem_loc_t *define_mem_loc(litmus_t *test, const char *name, int size) {
+    mem_loc_t *ml = &(test->mem_loc[test->n_mem_loc]);
+    ml->name = strdup(name);
+    ml->size = size;
+    ml->stride = size;
+    ml->offset = 0;
+    ml->v = 0;
+    test->n_mem_loc += 1;
+    return ml;
+}
+
 static int parse_var_token(litmus_t *test, const char *token, char *err) {
     int eq = find_char(token, '=');
 
@@ -978,7 +975,7 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
         char reg[BUFFER_LEN], v_name[BUFFER_LEN];
         char buf[BUFFER_LEN], v_type[BUFFER_LEN];
         int colon, reg_len;
-        int valt = T_VAL8;
+        int size = -1;
         
         eqsplit2(token, reg, v_name);
         reg_len = strlen(reg);
@@ -990,34 +987,49 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
         
         wssplit2(reg, v_type, buf);
         if (strlen(buf) > 0) {
-            valt = valt_for_type(v_type); 
+            size = size_for_type(v_type);
             strcpy(reg, buf);
+        } else {
+            v_type[0] = '\0';
         }
         
         colon = find_char(reg, ':');
-        
         if (colon < 0) {
             // assign mem location default value
-            int ml_n;
+            mem_loc_t *ml = NULL;
 
-            if (reg[0] == '[' && reg_len >= 3) {
-                // remove [ ]
-                memmove(reg, reg + 1, reg_len - 2);
-                reg_len -= 2;
-                reg[reg_len] = '\0';
+            if (v_type[0] != '\0') {
+                // this is a memory location definition
+                if (size <= 0) {
+                    snprintf(err, BUFFER_LEN - 1, "unknown variable type \"%s\"", v_type);
+                    return -1;
+                }
+                ml = define_mem_loc(test, reg, size); 
+            } else {
+                int ml_n;
+
+                if (reg[0] == '[' && reg_len >= 3) {
+                    // remove [ ]
+                    memmove(reg, reg + 1, reg_len - 2);
+                    reg_len -= 2;
+                    reg[reg_len] = '\0';
+                }
+
+                for (ml_n = 0; ml_n < test->n_mem_loc; ++ml_n) {
+                    if (strcmp(reg, test->mem_loc[ml_n].name) == 0) {
+                        ml = &(test->mem_loc[ml_n]); 
+                        break;
+                    }
+                }
             }
 
-            for (ml_n = 0; ml_n < test->n_mem_loc; ++ml_n) {
-                if (strcmp(reg, test->mem_loc[ml_n].name) == 0)
-                    break;
-            }
-            if (ml_n >= test->n_mem_loc) {
+            if (ml == NULL) {
                 snprintf(err, BUFFER_LEN - 1, "unknown memory location \"%s\" (1)", reg);
                 return -1;
             }
 
             if (isdigit(v_name[0])) {
-                test->mem_loc[ml_n].v = strtoull(v_name, NULL, 0);
+                ml->v = strtoull(v_name, NULL, 0);
             } else {
                 snprintf(err, BUFFER_LEN - 1, "memory location '%s' can only be a numeric value (found \"%s\")", reg, v_name);
                 return -1;
@@ -1032,7 +1044,7 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
             }
 
             if (isdigit(v_name[0])) {
-                tag_reg_val(regp, reg, strtoull(v_name, NULL, 0), valt);
+                tag_reg_val(regp, reg, strtoull(v_name, NULL, 0), size_to_valt(size));
             } else {
                 int ml_n;
                 for (ml_n = 0; ml_n < test->n_mem_loc; ++ml_n) {
@@ -1051,7 +1063,6 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
     } else {
         /* variable declaration */
         char v_type[BUFFER_LEN], v_name[BUFFER_LEN];
-        mem_loc_t *ml = &(test->mem_loc[test->n_mem_loc]);
         int size, colon;
 
         wssplit2(token, v_type, v_name);
@@ -1068,12 +1079,7 @@ static int parse_var_token(litmus_t *test, const char *token, char *err) {
         
         colon = find_char(v_name, ':');
         if (colon < 0) {
-            ml->name = strdup(v_name);
-            ml->size = size;
-            ml->stride = size;
-            ml->offset = 0;
-            ml->v = 0;
-            test->n_mem_loc += 1;
+            define_mem_loc(test, v_name, size);
         } else {
             treg_t *reg = find_thread_reg(test, v_name);
             if (reg) {
