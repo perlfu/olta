@@ -236,14 +236,36 @@ static litmus_t *read_file(FILE *fh) {
 
     ln = 0;
     while (!feof(fh)) {
-        int p = 0;
+        int comment = 0;
+        int p = 0, l = 0;
 
         do {
             int c = fgetc(fh);
+            // EOF check
             if (c < 0 || c == '\n')
                 break;
-            if (c != '\r')
+            
+            // begin comment check
+            if ((comment == 0) && (c == '*') && (p > 0)) {
+                if (buffer[p-1] == '(') {
+                    comment = 1;
+                    p -= 1;
+                }
+            }
+            
+            // not in comment; store character
+            if ((!comment) && (c != '\r')) {
                 buffer[p++] = (char) c;
+            }
+            
+            // end comment check
+            if ((comment == 1) && (c == ')')) {
+                if (l == '*')
+                    comment = 0;
+            }
+
+            // update last character
+            l = c;
         } while (p < (buflen - 1));
 
         // XXX: log if buflen reached
