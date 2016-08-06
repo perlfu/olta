@@ -103,7 +103,7 @@ static int prepare_output_format(litmus_t *lt, char **outfmt) {
                     );
                 } else {
                     sprintf(fbuf, 
-                        "%s%s:%s = %%llu",
+                        "%s%s:%s = 0x%%llx",
                         (n_out == 0) ? "" : ", ",
                         tt->name,
                         tt->reg[j].name
