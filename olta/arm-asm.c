@@ -38,16 +38,23 @@ static void _ldr_ind_idx(asm_ctx_t *ctx, reg_t dst_r, reg_t src_addr_r, int offs
     _ldr_ind_by_size(ctx, 8, dst_r, src_addr_r, offset_idx);
 }
 
-static void _str_ind_by_size(asm_ctx_t *ctx, int size, reg_t src_r, reg_t dst_addr_r, int offset_idx) {
+static void _str_ind_by_size(asm_ctx_t *ctx, int size, reg_t src_r, reg_t dst_addr_r, int offset_idx, int scale) {
     uint32_t base = 0;
     switch (size) {
-        case 1: base = 0x39000000; break;
-        case 2: base = 0x79000000; break;
-        case 4: base = 0xb9000000; break;
-        case 8: base = 0xf9000000; break;
+        case 1: base = 0x38000000; break;
+        case 2: base = 0x78000000; break;
+        case 4: base = 0xb8000000; break;
+        case 8: base = 0xf8000000; break;
         default: assert(0);
     }
-    ctx->buf[ctx->idx++] = base | (src_r & 0x1f) | ((dst_addr_r & 0x1f) << 5) | ((offset_idx & 0xff) << 10); 
+    if ((offset_idx < 0) || (offset_idx > 0 && scale == 0)) {
+        assert(scale == 0);
+        ctx->buf[ctx->idx++] = base | (src_r & 0x1f) | ((dst_addr_r & 0x1f) << 5) | ((offset_idx & 0x1ff) << 12); 
+    } else {
+        assert(offset_idx >= 0);
+        base |= 0x01000000;
+        ctx->buf[ctx->idx++] = base | (src_r & 0x1f) | ((dst_addr_r & 0x1f) << 5) | ((offset_idx & 0xfff) << 10);
+    }
 }
 
 static void _str_ind_by_size_offset_r(asm_ctx_t *ctx, int size, reg_t src_r, reg_t dst_addr_r, reg_t offset_r, int scale) {
@@ -65,7 +72,7 @@ static void _str_ind_by_size_offset_r(asm_ctx_t *ctx, int size, reg_t src_r, reg
 }
 
 static void _str_ind(asm_ctx_t *ctx, reg_t src_r, reg_t dst_addr_r) {
-    _str_ind_by_size(ctx, 8, src_r, dst_addr_r, 0);
+    _str_ind_by_size(ctx, 8, src_r, dst_addr_r, 0, 0);
 }
 
 static void _str_ind_r(asm_ctx_t *ctx, reg_t src_r, reg_t dst_addr_r, reg_t offset_r) {
@@ -74,7 +81,7 @@ static void _str_ind_r(asm_ctx_t *ctx, reg_t src_r, reg_t dst_addr_r, reg_t offs
 
 __attribute__ ((unused))
 static void _str_ind_idx(asm_ctx_t *ctx, reg_t src_r, reg_t dst_addr_r, int offset_idx) {
-    _str_ind_by_size(ctx, 8, src_r, dst_addr_r, offset_idx);
+    _str_ind_by_size(ctx, 8, src_r, dst_addr_r, offset_idx, 0);
 }
 
 static void _movz(asm_ctx_t *ctx, int size, reg_t reg, int val, int shift) {
@@ -827,12 +834,13 @@ static int build_str(asm_ctx_t *ctx, ins_desc_t *desc) {
         int size = src_a->size;
         if (size == 1 || size == 2 || size == 4 || size == 8) {
             if (desc->n_arg == 2) {
-                _str_ind_by_size(ctx, size, src_a->n, addr_a->n, 0);
+                _str_ind_by_size(ctx, size, src_a->n, addr_a->n, 0, 0);
                 return 0;
             } else if (desc->n_arg == 3) {
                 ins_arg_t *offset_a = &(desc->arg[2]);
                 if (desc->flags & I_OFFSET_CONST) {
-                    _str_ind_by_size(ctx, size, src_a->n, addr_a->n, offset_a->n);
+                    // XXX: note, not scaled, this seems to be the expected behaviour
+                    _str_ind_by_size(ctx, size, src_a->n, addr_a->n, offset_a->n, 0);
                     return 0;
                 } else if (desc->flags & I_OFFSET_REG) {
                     // XXX: note, not scaled, this seems to be the expected behaviour
