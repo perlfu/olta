@@ -14,9 +14,11 @@ static void _ldr_ind_by_size(asm_ctx_t *ctx, int size, reg_t dst_r, reg_t src_ad
         default: assert(0);
     }
     if ((offset_idx < 0) || (offset_idx > 0 && scale == 0)) {
+        // load by unscaled offset (signed extended offset)
         assert(scale == 0);
         ctx->buf[ctx->idx++] = base | (dst_r & 0x1f) | ((src_addr_r & 0x1f) << 5) | ((offset_idx & 0x1ff) << 12); 
     } else {
+        // load by unsigned offset (scaled by read size)
         assert(offset_idx >= 0);
         base |= 0x01000000;
         ctx->buf[ctx->idx++] = base | (dst_r & 0x1f) | ((src_addr_r & 0x1f) << 5) | ((offset_idx & 0xfff) << 10);
@@ -55,9 +57,11 @@ static void _str_ind_by_size(asm_ctx_t *ctx, int size, reg_t src_r, reg_t dst_ad
         default: assert(0);
     }
     if ((offset_idx < 0) || (offset_idx > 0 && scale == 0)) {
+        // store by unscaled offset (signed extended offset)
         assert(scale == 0);
         ctx->buf[ctx->idx++] = base | (src_r & 0x1f) | ((dst_addr_r & 0x1f) << 5) | ((offset_idx & 0x1ff) << 12); 
     } else {
+        // store by unsigned offset (scaled by write size)
         assert(offset_idx >= 0);
         base |= 0x01000000;
         ctx->buf[ctx->idx++] = base | (src_r & 0x1f) | ((dst_addr_r & 0x1f) << 5) | ((offset_idx & 0xfff) << 10);
